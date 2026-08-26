@@ -22,10 +22,9 @@ Uygulama için npm, veritabanı veya build işlemi gerekmez.
 - `ä ö ü Ä Ö Ü ß` Almanca klavyesi
 - Görev maddeleri için yerel içerik analizi ve 10 puanlık çalışma değerlendirmesi
 - Yazılan metnin hemen altında kırmızı dalgalı çizgi, numara, doğru kullanım ve Türkçe açıklama
-- İnternet olmadan çalışan, 292 yaygın yazım hatası ve bağlama duyarlı A1–A2 dilbilgisi kuralları içeren yerel kontrol motoru
-- Fiil çekimi ve konumu, modal/ayrılabilen fiiller, Akkusativ-Dativ, artikel/iyelik, edatlar, Perfekt, `weil/dass/wenn`, sorular, hitap ve noktalama denetimi
+- İnternet olmadan çalışan, 242 yaygın yazım hatası ve bağlama duyarlı A1–A2 dilbilgisi kuralları içeren yerel kontrol motoru
+- Fiil çekimi ve konumu, modal/ayrılabilen fiiller, Akkusativ-Dativ, artikel/iyelik, edatlar, Perfekt, `weil/dass`, sorular, hitap ve noktalama denetimi
 - Bulguları `Hata`, `İyileştirme` ve `Bilgi` olarak ayıran; yalnızca yüksek güvenli düzeltmeleri otomatik uygulayan öğretici geri bildirim
-- Ana gramer verilerini `data.js`, bağlama ve false-positive kararlarını `script.js` içinde tutan ayrık motor yapısı
 - Göreve cevap, resmîlik, hitap-kapanış, uzunluk ve dilbilgisini birlikte gösteren mektuba uygunluk özeti
 - Tek çerçeveli kısa sonuç özeti ve isteğe bağlı açılan düzeltilmiş metin
 - “Hangi durumda hangi kalıp?” mantığıyla amaçlarına göre ayrılmış sade kalıp rehberi

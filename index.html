@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="AYDA Dil Akademisi telc A2 Schreiben çalışma ve değerlendirme platformu.">
+  <meta name="theme-color" content="#14243d">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="AYDA | telc A2 Schreiben Trainer">
+  <meta property="og:description" content="Yaz. Kontrol et. Öğren. 15 özgün A2 Schreiben görevi ve yerel otomatik çalışma kontrolü.">
+  <meta property="og:image" content="og.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="AYDA | telc A2 Schreiben Trainer">
+  <meta name="twitter:description" content="Yaz. Kontrol et. Öğren. 15 özgün A2 Schreiben görevi ve yerel otomatik çalışma kontrolü.">
+  <meta name="twitter:image" content="og.png">
+  <title>AYDA | telc A2 Schreiben Trainer</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main-content">İçeriğe geç</a>
+
+  <header class="site-header">
+    <div class="header-brand" aria-label="AYDA Dil Akademisi">
+      <span class="brand-mark" aria-hidden="true">A</span>
+      <span>
+        <strong>AYDA</strong>
+        <small>Dil Akademisi</small>
+      </span>
+    </div>
+
+    <div class="header-title">
+      <strong>A2 Yazma Çalışması</strong>
+      <span id="headerTask">15 çalışma sorusu</span>
+    </div>
+
+    <nav class="top-nav" aria-label="Ana menü">
+      <button class="nav-button active" type="button" data-view="home">Mektup Seç</button>
+      <button class="nav-button" type="button" data-view="practice">Kalıp Rehberi</button>
+    </nav>
+
+    <div class="timer-wrap" aria-label="Kalan süre">
+      <span class="timer-label">Kalan süre</span>
+      <strong id="timer" class="timer" aria-live="polite">--:--</strong>
+      <div class="timer-actions">
+        <button id="pauseTimer" class="timer-text-button" type="button" title="Süreyi duraklat" aria-label="Süreyi duraklat" disabled>Duraklat</button>
+        <button id="resetTimer" class="timer-text-button" type="button" title="Süreyi yeniden başlat" aria-label="Süreyi yeniden başlat" disabled>Başa al</button>
+      </div>
+    </div>
+  </header>
+
+  <main id="main-content">
+    <section id="startView" class="view active start-view" aria-labelledby="startHeading">
+      <div class="start-card">
+        <span class="start-eyebrow">AYDA DİL AKADEMİSİ</span>
+        <h1 id="startHeading">A2 Almanca Yazma Çalışması</h1>
+        <p class="start-lead">Bir mektup seçin. Süre, siz başlatmadan çalışmaz.</p>
+
+        <div class="start-time-note">
+          <strong>15 dakika</strong>
+          <span>Sayaç yalnızca sınavı başlattığında çalışır.</span>
+        </div>
+
+        <section class="start-help" aria-labelledby="startHelpHeading">
+          <h2 id="startHelpHeading">Nasıl yapacaksınız?</h2>
+          <div class="start-help-list">
+            <div><b>1</b><p><strong>Soruyu okuyun.</strong><span>Dört maddeden istediğiniz üçünü seçin.</span></p></div>
+            <div><b>2</b><p><strong>Mektubunuzu yazın.</strong><span>Hitapla başlayın, yaklaşık 40 kelime yazın ve kapanış ekleyin.</span></p></div>
+            <div><b>3</b><p><strong>Kontrol düğmesine basın.</strong><span>Hatalı yerlerin doğrusu ve Türkçe açıklaması yazınızın altında gösterilir.</span></p></div>
+          </div>
+          <p class="start-help-tip"><strong>İpucu:</strong> Önce kalıplara bakabilirsiniz. Kalıp rehberindeyken sınav süresi çalışmaz.</p>
+        </section>
+
+        <section class="start-picker" aria-labelledby="startPickerHeading">
+          <h2 id="startPickerHeading">Bir çalışma seçin</h2>
+          <p>Numaralı görevlerden birini veya kendi yazınız için serbest seçeneğini kullanın.</p>
+          <div id="startTaskGrid" class="start-task-grid" role="group" aria-label="Mektup seçimi"></div>
+          <p class="selected-task-note">Seçiminiz: <strong id="startSelectionLabel">Mektup 1</strong></p>
+        </section>
+
+        <div class="start-actions">
+          <button id="startExam" class="primary-button start-button" type="button">Seçilen Çalışmayı Başlat</button>
+          <button id="openPhraseGuide" class="secondary-button guide-button" type="button">Önce kalıplara bak</button>
+        </div>
+        <p class="start-save-note">Daha önce yazdığın taslaklar kaybolmaz.</p>
+      </div>
+    </section>
+
+    <section id="trainerView" class="view" aria-label="Schreiben çalışma alanı" hidden>
+      <div class="workspace">
+        <aside class="task-panel" aria-labelledby="taskTitle">
+          <div class="panel-kicker-row">
+            <span class="panel-kicker">1. SORUYU OKU</span>
+            <span id="taskDifficulty" class="difficulty-badge">A2</span>
+          </div>
+
+          <p id="taskTopic" class="task-topic">Geburtstag / Einladung</p>
+          <h1 id="taskTitle">Aufgabe 01</h1>
+
+          <section class="task-card" aria-labelledby="situationHeading">
+            <h2 id="situationHeading">Görev</h2>
+            <p id="taskSituation"></p>
+            <p id="taskInstruction" class="task-instruction"></p>
+          </section>
+
+          <section id="pointsSection" class="points-section" aria-labelledby="pointsHeading">
+            <div class="section-heading-row">
+              <h2 id="pointsHeading">Bu 4 maddeden 3 tanesini yaz:</h2>
+              <span class="choose-note">3 tanesini yaz</span>
+            </div>
+            <ol id="contentPoints" class="content-points"></ol>
+            <p class="writing-reminder">Yaklaşık 40 kelime yaz. Başlangıç ve kapanış eklemeyi unutma.</p>
+          </section>
+
+          <div id="supportTools" class="support-tools">
+            <section class="accordion">
+              <button id="tipsToggle" class="accordion-toggle" type="button" aria-expanded="false" aria-controls="tipsPanel">
+                <span>Yardımcı cümleleri göster</span>
+                <span aria-hidden="true">＋</span>
+              </button>
+              <div id="tipsPanel" class="accordion-panel" hidden>
+                <p class="support-note">Göreve uygun kısa ve güvenli kalıplar.</p>
+                <div id="taskPhrases" class="task-phrases"></div>
+              </div>
+            </section>
+
+            <section class="accordion">
+              <button id="sampleToggle" class="accordion-toggle" type="button" aria-expanded="false" aria-controls="samplePanel">
+                <span>Örnek cevabı göster</span>
+                <span aria-hidden="true">＋</span>
+              </button>
+              <div id="samplePanel" class="accordion-panel" hidden>
+                <p class="sample-warning">Önce kendin yazmanı öneriyoruz.</p>
+                <blockquote id="sampleAnswer"></blockquote>
+                <p class="support-note">Bu tek doğru cevap değildir. Aynı görevi farklı cümlelerle de yapabilirsin.</p>
+              </div>
+            </section>
+          </div>
+
+          <div id="taskNavigation" class="task-navigation">
+            <button id="prevTask" class="secondary-button" type="button">← Önceki soru</button>
+            <label class="task-select-label" for="taskSelect">
+              <span class="sr-only">Soru seç</span>
+              <select id="taskSelect" aria-label="Soru seç"></select>
+            </label>
+            <button id="nextTask" class="secondary-button" type="button">Sonraki soru →</button>
+          </div>
+        </aside>
+
+        <section class="writing-panel" aria-labelledby="writingHeading">
+          <div class="writing-panel-header">
+            <div>
+              <span class="panel-kicker">2. MEKTUBUNU YAZ</span>
+              <h2 id="writingHeading">Almanca mektubunu buraya yaz</h2>
+              <p id="writingHelp" class="writing-help">Kısa ve basit yazman yeterli. Yanlış yapmaktan korkma.</p>
+            </div>
+          </div>
+
+          <div class="keyboard-wrap">
+            <span id="keyboardLabel">Almanca harfler — klavyende yoksa buradan seç</span>
+            <div id="germanKeyboard" class="german-keyboard" role="toolbar" aria-labelledby="keyboardLabel">
+              <button type="button" data-char="ä" title="ä einfügen">ä</button>
+              <button type="button" data-char="ö" title="ö einfügen">ö</button>
+              <button type="button" data-char="ü" title="ü einfügen">ü</button>
+              <button type="button" data-char="Ä" title="Ä einfügen">Ä</button>
+              <button type="button" data-char="Ö" title="Ö einfügen">Ö</button>
+              <button type="button" data-char="Ü" title="Ü einfügen">Ü</button>
+              <button type="button" data-char="ß" title="ß einfügen">ß</button>
+              <button type="button" data-char="„" title="Anführungszeichen einfügen">„</button>
+              <button type="button" data-char="“" title="Anführungszeichen einfügen">“</button>
+            </div>
+          </div>
+
+          <label class="sr-only" for="studentText">Almanca yazı alanı</label>
+          <textarea id="studentText" rows="13" spellcheck="true" lang="de" placeholder="Liebe Anna,&#10;&#10;vielen Dank für deine E-Mail. ..." aria-describedby="lengthStatus"></textarea>
+
+          <section id="inlineReview" class="inline-review" aria-labelledby="inlineReviewHeading" aria-live="polite" hidden>
+            <div class="inline-review-heading">
+              <div>
+                <span class="panel-kicker">METNİN ÜZERİNDE KONTROL</span>
+                <h3 id="inlineReviewHeading">Hatalı yerler kırmızı çizgilidir</h3>
+              </div>
+              <span id="inlineReviewCount" class="review-count"></span>
+            </div>
+            <p id="inlineReviewHelp" class="inline-review-help">Yazdığınız mektubun kontrol edilmiş kopyasıdır. Her numaranın açıklaması hemen alttadır.</p>
+            <div id="reviewedLetter" class="reviewed-letter" lang="de"></div>
+            <div id="inlineExplanations" class="inline-explanations"></div>
+          </section>
+
+          <div class="counter-row">
+            <div class="counts">
+              <span>Kelime: <strong id="wordCount">0</strong><span id="wordTarget"> / yaklaşık 40</span></span>
+              <span>Harf: <strong id="charCount">0</strong></span>
+            </div>
+            <span id="lengthStatus" class="length-status">Noch etwas kurz.</span>
+          </div>
+
+          <div class="primary-actions">
+            <button id="checkLetter" class="primary-button" type="button">
+              <span aria-hidden="true">✓</span> 3. Mektubumu Kontrol Et
+            </button>
+          </div>
+          <p class="automatic-warning"><strong>Önemli not:</strong> Bu otomatik çalışma kontrolü hata yapabilir. Sonucunuzu öğretmeninize danışın; yalnızca otomatik düzeltmeye güvenmeyin.</p>
+        </section>
+      </div>
+
+      <section id="resultsPanel" class="results-panel" aria-labelledby="resultsHeading" hidden>
+        <div class="results-topbar">
+          <div>
+            <span class="panel-kicker">3. SONUÇ</span>
+            <h2 id="resultsHeading">Kısa kontrol sonucu</h2>
+          </div>
+          <button id="closeResults" class="icon-button light" type="button" aria-label="Değerlendirmeyi kapat">×</button>
+        </div>
+        <div id="resultsContent"></div>
+      </section>
+    </section>
+
+    <section id="practiceView" class="view practice-view" aria-labelledby="practiceHeading" hidden>
+      <div class="practice-hero">
+        <span class="panel-kicker">KALIP REHBERİ</span>
+        <h1 id="practiceHeading">Hangi durumda hangi kalıp kullanılır?</h1>
+        <p>İhtiyacını seç. Her kalıbın Almancası ve Türkçe anlamı birlikte gösterilir.</p>
+      </div>
+
+      <section id="bankPractice" class="practice-card active" aria-label="Kalıp bankası">
+        <div class="practice-card-heading">
+          <div>
+            <h2>Kullanım amacına göre kalıplar</h2>
+            <p>Örneğin “gelemiyorum” demek, saat vermek veya fiyat sormak için uygun bölümü seç.</p>
+          </div>
+          <label class="search-field">
+            <span class="sr-only">Kalıplarda ara</span>
+            <input id="phraseSearch" type="search" placeholder="Kalıp ara…">
+          </label>
+        </div>
+        <div id="phraseCategories" class="category-chips"></div>
+        <div id="phraseBankList" class="phrase-guide-groups"></div>
+      </section>
+    </section>
+  </main>
+
+  <div id="notification" class="notification" role="status" aria-live="polite" hidden></div>
+
+  <footer class="site-footer">
+    <div>
+      <strong>AYDA Dil Akademisi</strong>
+      <p>Bu platformdaki sorular AYDA Dil Akademisi tarafından sınav formatına uygun olarak hazırlanmış özgün çalışma sorularıdır. Resmî telc sınav soruları değildir.</p>
+      <p class="footer-warning">Otomatik kontrol öğretmen değerlendirmesinin yerine geçmez.</p>
+    </div>
+    <div class="footer-links">
+      <a href="https://www.aydadil.com" target="_blank" rel="noopener">Web</a>
+      <a href="https://instagram.com/ayda.dil" target="_blank" rel="noopener">Instagram</a>
+      <a href="https://youtube.com/@aydadil" target="_blank" rel="noopener">YouTube</a>
+      <a href="tel:+905409122503">0540 912 25 03</a>
+      <button id="resetProgress" class="footer-button" type="button">İlerlemeyi Sıfırla</button>
+    </div>
+  </footer>
+
+  <script src="script.js" defer></script>
+</body>
+</html>
