@@ -1,11 +1,8 @@
 "use strict";
 
-// Kurum daha sonra güvenli bir sunucu endpoint'i eklerse bu alanı doldurabilir.
-// Gizli API anahtarı hiçbir zaman bu dosyaya yazılmamalıdır.
-const AI_TEACHER_ENDPOINT = "";
-const LANGUAGE_TOOL_ENDPOINT = "https://api.languagetool.org/v2/check";
 const STORAGE_KEY = "ayda_telc_a2_progress_v1";
 const TASK_SECONDS = 15 * 60;
+const grammarReference = globalThis.AYDA_GRAMMAR_DATA || {};
 
 const phraseBank = {
   greetingInformal: [
@@ -56,7 +53,9 @@ const phraseBank = {
   travel: [
     { id: "travel-train", text: "Ich komme mit dem Zug.", tr: "Trenle geliyorum." },
     { id: "travel-arrive", text: "Ich komme um 17 Uhr an.", tr: "Saat 17'de varıyorum." },
-    { id: "travel-pickup", text: "Kannst du mich am Bahnhof abholen?", tr: "Beni gardan alabilir misin?" }
+    { id: "travel-pickup", text: "Kannst du mich am Bahnhof abholen?", tr: "Beni gardan alabilir misin?" },
+    { id: "travel-overnight", text: "Kann ich bei dir übernachten?", tr: "Sende geceleyebilir miyim?" },
+    { id: "travel-night", text: "Ich bleibe eine Nacht.", tr: "Bir gece kalıyorum." }
   ],
   help: [
     { id: "help-ask", text: "Kannst du mir bitte helfen?", tr: "Bana yardım edebilir misin?" },
@@ -487,7 +486,8 @@ const localLanguageRules = [
     pattern: /\bich komme (montag|dienstag|mittwoch|donnerstag|freitag|samstag|sonntag)\b/gi,
     replacement: "ich komme am $1",
     type: "Präposition",
-    explanation: "Günlerden önce ‘am’ kullanılır: ich komme am Samstag."
+    explanation: "Günlerden önce genellikle ‘am’ kullanılır: ich komme am Samstag.",
+    severity: "IMPROVEMENT"
   },
   {
     id: "conjugation-and-day",
@@ -502,27 +502,6 @@ const localLanguageRules = [
     replacement: "meinen Bruder",
     type: "Artikel / Akkusativ",
     explanation: "‘Bruder’ burada Akkusativ olduğu için ‘meinen’ kullanılır."
-  },
-  {
-    id: "ich-kommen",
-    pattern: /\bich kommen\b/gi,
-    replacement: "ich komme",
-    type: "Grammatik / Verb",
-    explanation: "‘ich’ ile fiil ‘komme’ olarak çekilir: ich komme."
-  },
-  {
-    id: "ich-haben",
-    pattern: /\bich haben\b/gi,
-    replacement: "ich habe",
-    type: "Grammatik / Verb",
-    explanation: "‘haben’ fiilinin ‘ich’ çekimi ‘habe’ olur."
-  },
-  {
-    id: "ich-sein",
-    pattern: /\bich sein\b/gi,
-    replacement: "ich bin",
-    type: "Grammatik / Verb",
-    explanation: "‘sein’ fiilinin ‘ich’ çekimi ‘bin’ olur."
   },
   {
     id: "wir-kann",
@@ -677,18 +656,189 @@ const localLanguageRules = [
     replacement: "Sehr geehrte Damen und Herren",
     type: "Anrede",
     explanation: "Genel resmî hitap ‘Sehr geehrte Damen und Herren’ biçimindedir."
+  },
+  {
+    id: "modal-muss-gehe",
+    pattern: /\bich muss gehe\b/gi,
+    replacement: "ich muss gehen",
+    type: "Modalverb / Infinitiv",
+    explanation: "Modal fiilden sonra ana fiil mastar hâlinde kullanılır: muss gehen."
+  },
+  {
+    id: "help-mich-mir",
+    pattern: /\b(kannst du|können sie) mich helfen\b/gi,
+    replacement: "$1 mir helfen",
+    type: "Personalpronomen / Dativ",
+    explanation: "‘helfen’ fiili Dativ ister; bu nedenle ‘mir’ kullanılır."
+  },
+  {
+    id: "help-dich-dir",
+    pattern: /\bich helfe dich\b/gi,
+    replacement: "ich helfe dir",
+    type: "Personalpronomen / Dativ",
+    explanation: "‘helfen’ fiili Dativ ister: ich helfe dir."
+  },
+  {
+    id: "write-du-dir",
+    pattern: /\bich schreibe du\b/gi,
+    replacement: "ich schreibe dir",
+    type: "Personalpronomen / Dativ",
+    explanation: "Bir kişiye yazarken Dativ kullanılır: ich schreibe dir."
+  },
+  {
+    id: "go-bei-arzt",
+    pattern: /\bich gehe bei(?:m)? (?:dem )?arzt\b/gi,
+    replacement: "ich gehe zum Arzt",
+    type: "Präposition",
+    explanation: "Bir hedefe giderken burada ‘zum Arzt’ kullanılır."
+  },
+  {
+    id: "travel-zu-city",
+    pattern: /\b(ich|wir) fahre(n)? zu (berlin|hamburg|münchen|köln|bonn|bremen|frankfurt|dresden|leipzig)\b/gi,
+    replacement: "$1 fahre$2 nach $3",
+    type: "Präposition / Ort",
+    explanation: "Artikelsiz şehir adlarıyla yön bildirirken ‘nach’ kullanılır."
+  },
+  {
+    id: "perfekt-habe-gegangen",
+    pattern: /\bich habe gegangen\b/gi,
+    replacement: "ich bin gegangen",
+    type: "Perfekt / Hilfsverb",
+    explanation: "‘gehen’ hareket fiilidir; Perfekt'te ‘sein’ kullanılır."
+  },
+  {
+    id: "perfekt-habe-gekommen",
+    pattern: /\bich habe gekommen\b/gi,
+    replacement: "ich bin gekommen",
+    type: "Perfekt / Hilfsverb",
+    explanation: "‘kommen’ hareket fiilidir; Perfekt'te ‘sein’ kullanılır."
+  },
+  {
+    id: "perfekt-bin-gemacht",
+    pattern: /\bich bin gemacht\b/gi,
+    replacement: "ich habe gemacht",
+    type: "Perfekt / Hilfsverb",
+    explanation: "‘machen’ fiilinin Perfekt biçiminde ‘haben’ kullanılır."
+  },
+  {
+    id: "perfekt-bin-gekauft",
+    pattern: /\bich bin gekauft\b/gi,
+    replacement: "ich habe gekauft",
+    type: "Perfekt / Hilfsverb",
+    explanation: "‘kaufen’ fiilinin Perfekt biçiminde ‘haben’ kullanılır."
+  },
+  {
+    id: "question-wann-order",
+    pattern: /\bwann (der kurs|die party|der unterricht|das treffen) (beginnt|endet|ist)\b/gi,
+    replacement: "wann $2 $1",
+    type: "Fragesatz / Verbposition",
+    explanation: "Soru kelimesinden sonra çekimli fiil, ardından özne gelir."
+  },
+  {
+    id: "question-price-order",
+    pattern: /\bwie viel (der kurs|das hotel|die übernachtung) kostet\b/gi,
+    replacement: "wie viel kostet $1",
+    type: "Fragesatz / Verbposition",
+    explanation: "Soru kelimesinden sonra çekimli fiil ikinci konuma gelir."
+  },
+  {
+    id: "question-modal-separable",
+    pattern: /\b(kann|darf) ich mitbringen (meine schwester|meinen bruder|einen freund|eine freundin|etwas)\b/gi,
+    replacement: "$1 ich $2 mitbringen",
+    type: "Fragesatz / Modalverb",
+    explanation: "Modal soruda nesne ortada, mastar fiil cümlenin sonunda olur."
+  },
+  {
+    id: "separable-mitbringe",
+    pattern: /\bich mitbringe (meine schwester|meinen bruder|einen freund|eine freundin|etwas)\b/gi,
+    replacement: "ich bringe $1 mit",
+    type: "Trennbares Verb",
+    explanation: "Ana cümlede ‘mitbringen’ ayrılır: ich bringe … mit."
+  },
+  {
+    id: "separable-bringe-mit-object",
+    pattern: /\bich bringe mit (meine schwester|meinen bruder|einen freund|eine freundin|etwas)\b/gi,
+    replacement: "ich bringe $1 mit",
+    type: "Trennbares Verb / Verbposition",
+    explanation: "Ayrılan ‘mit’ parçası ana cümlenin sonuna gider."
+  },
+  {
+    id: "informal-peter",
+    pattern: /^\s*liebe peter\b/gim,
+    replacement: "Lieber Peter",
+    type: "Anrede / Genus",
+    explanation: "Peter erkek adıdır; samimi hitap ‘Lieber Peter’ olur."
+  },
+  {
+    id: "informal-anna",
+    pattern: /^\s*lieber anna\b/gim,
+    replacement: "Liebe Anna",
+    type: "Anrede / Genus",
+    explanation: "Anna kadın adıdır; samimi hitap ‘Liebe Anna’ olur."
+  },
+  {
+    id: "formal-herr",
+    pattern: /^\s*sehr geehrte herr\b/gim,
+    replacement: "Sehr geehrter Herr",
+    type: "Anrede / Genus",
+    explanation: "‘Herr’ ile resmî hitap ‘Sehr geehrter Herr …’ şeklindedir."
+  },
+  {
+    id: "formal-frau",
+    pattern: /^\s*sehr geehrter frau\b/gim,
+    replacement: "Sehr geehrte Frau",
+    type: "Anrede / Genus",
+    explanation: "‘Frau’ ile resmî hitap ‘Sehr geehrte Frau …’ şeklindedir."
+  },
+  {
+    id: "negation-time",
+    pattern: /\bich habe nicht zeit\b/gi,
+    replacement: "ich habe keine Zeit",
+    type: "Negation / Artikel",
+    explanation: "Bir ismi olumsuz yaparken burada ‘kein’ kullanılır: keine Zeit."
+  },
+  {
+    id: "negation-termin",
+    pattern: /\bich habe kein termin\b/gi,
+    replacement: "ich habe keinen Termin",
+    type: "Negation / Akkusativ",
+    explanation: "‘Termin’ eril ve burada Akkusativ olduğu için ‘keinen’ kullanılır."
+  },
+  {
+    id: "possessive-help",
+    pattern: /\bich brauche dein hilfe\b/gi,
+    replacement: "ich brauche deine Hilfe",
+    type: "Possessivartikel / Genus",
+    explanation: "‘Hilfe’ dişil bir isimdir; bu nedenle ‘deine Hilfe’ kullanılır."
+  },
+  {
+    id: "run-on-ich",
+    pattern: /\b(ich (?:bin|habe|komme|muss|kann|möchte)[^.!?,;\n]{1,45})\s+(ich (?:bin|habe|komme|muss|kann|möchte))\b/gi,
+    replacement: "$1. $2",
+    type: "Satzzeichen / Satzgrenze",
+    explanation: "İki ana cümleyi nokta ile ayır; ikinci cümle büyük harfle başlar."
   }
 ];
 
 const commonGermanNouns = Object.freeze({
   adresse: "Adresse",
+  abend: "Abend",
+  auto: "Auto",
   anmeldung: "Anmeldung",
   antwort: "Antwort",
   arzt: "Arzt",
+  arzttermin: "Arzttermin",
   bahnhof: "Bahnhof",
+  brief: "Brief",
+  bruder: "Bruder",
+  bus: "Bus",
+  café: "Café",
   dank: "Dank",
+  deutschkurs: "Deutschkurs",
   einladung: "Einladung",
   familie: "Familie",
+  fahrrad: "Fahrrad",
+  formular: "Formular",
   freund: "Freund",
   freundin: "Freundin",
   geburtstag: "Geburtstag",
@@ -697,6 +847,7 @@ const commonGermanNouns = Object.freeze({
   herr: "Herr",
   herren: "Herren",
   hilfe: "Hilfe",
+  hotel: "Hotel",
   information: "Information",
   informationen: "Informationen",
   kaffee: "Kaffee",
@@ -704,6 +855,8 @@ const commonGermanNouns = Object.freeze({
   kuchen: "Kuchen",
   kurs: "Kurs",
   medizin: "Medizin",
+  monat: "Monat",
+  mutter: "Mutter",
   montag: "Montag",
   dienstag: "Dienstag",
   mittwoch: "Mittwoch",
@@ -714,25 +867,323 @@ const commonGermanNouns = Object.freeze({
   park: "Park",
   party: "Party",
   preis: "Preis",
+  schule: "Schule",
+  schwester: "Schwester",
+  sommer: "Sommer",
+  sprachkurs: "Sprachkurs",
   salat: "Salat",
   stunde: "Stunde",
   stunden: "Stunden",
   termin: "Termin",
   unterricht: "Unterricht",
+  unterkunft: "Unterkunft",
   uhr: "Uhr",
+  vormittag: "Vormittag",
+  woche: "Woche",
   wochenende: "Wochenende",
+  winter: "Winter",
   zeit: "Zeit",
-  zug: "Zug"
+  zug: "Zug",
+  ...Object.fromEntries(
+    Object.keys(grammarReference.nounGender || {})
+      .filter((noun) => !["Morgen", "Essen", "Treffen"].includes(noun))
+      .map((noun) => [noun.toLocaleLowerCase("de-DE"), noun])
+  )
 });
+
+const commonSpellingCorrections = Object.freeze({
+  grusse: "Grüße",
+  grüsse: "Grüße",
+  "gruße": "Grüße",
+  gruse: "Grüße",
+  geburstag: "Geburtstag",
+  geburtztag: "Geburtstag",
+  einlandung: "Einladung",
+  einladun: "Einladung",
+  einladüng: "Einladung",
+  trefen: "Treffen",
+  treffenn: "Treffen",
+  wochende: "Wochenende",
+  wochenede: "Wochenende",
+  kome: "komme",
+  komen: "kommen",
+  komenn: "kommen",
+  komt: "kommt",
+  kan: "kann",
+  kansst: "kannst",
+  konen: "können",
+  konnen: "können",
+  könen: "können",
+  musen: "müssen",
+  mussen: "müssen",
+  müsen: "müssen",
+  naturlich: "natürlich",
+  spater: "später",
+  fruh: "früh",
+  uber: "über",
+  fur: "für",
+  zuruck: "zurück",
+  wunsche: "wünsche",
+  wunschen: "wünschen",
+  vieleicht: "vielleicht",
+  warscheinlich: "wahrscheinlich",
+  nachste: "nächste",
+  nachsten: "nächsten",
+  moglich: "möglich",
+  moeglich: "möglich",
+  gemuse: "Gemüse",
+  kaffe: "Kaffee",
+  kafe: "Kaffee",
+  artzt: "Arzt",
+  artz: "Arzt",
+  kranck: "krank",
+  arbieten: "arbeiten",
+  arbeten: "arbeiten",
+  terminn: "Termin",
+  sprachkurz: "Sprachkurs",
+  deutch: "Deutsch",
+  deutsh: "Deutsch",
+  deutschkurz: "Deutschkurs",
+  anmeldun: "Anmeldung",
+  informazion: "Information",
+  informazionen: "Informationen",
+  antword: "Antwort",
+  antwortten: "antworten",
+  schiken: "schicken",
+  schikken: "schicken",
+  bittte: "bitte",
+  entschuldiung: "Entschuldigung",
+  freudin: "Freundin",
+  freundinn: "Freundin",
+  fahrrat: "Fahrrad",
+  farad: "Fahrrad",
+  farrad: "Fahrrad",
+  banhof: "Bahnhof",
+  bahnof: "Bahnhof",
+  ubernachten: "übernachten",
+  uberachten: "übernachten",
+  strasse: "Straße",
+  haubtstrasse: "Hauptstraße",
+  funf: "fünf",
+  zwolf: "zwölf",
+  dreisig: "dreißig",
+  nachmitag: "Nachmittag",
+  vormitag: "Vormittag",
+  mitag: "Mittag",
+  mitbrigen: "mitbringen",
+  abhohlen: "abholen",
+  helffen: "helfen",
+  geholffen: "geholfen",
+  kopfschmertzen: "Kopfschmerzen",
+  gebacht: "gebracht",
+  gekomt: "gekommen",
+  gefahrt: "gefahren",
+  gegengen: "gegangen",
+  geschreibt: "geschrieben",
+  geschriben: "geschrieben",
+  weill: "weil",
+  ferstehen: "verstehen",
+  verstehn: "verstehen",
+  kursgebuhr: "Kursgebühr",
+  gebuhr: "Gebühr",
+  offnungszeiten: "Öffnungszeiten",
+  offnung: "Öffnung",
+  geoffnet: "geöffnet",
+  geschlosen: "geschlossen",
+  antwroten: "antworten",
+  anwtoren: "antworten",
+  besuhen: "besuchen",
+  bescuhen: "besuchen",
+  geshenk: "Geschenk",
+  geschnek: "Geschenk",
+  sprachkusr: "Sprachkurs",
+  sprachkus: "Sprachkurs",
+  arzttermi: "Arzttermin",
+  arztterminn: "Arzttermin",
+  ubernachtung: "Übernachtung",
+  übernachtun: "Übernachtung",
+  unterkunf: "Unterkunft",
+  unterkunftt: "Unterkunft",
+  moegte: "möchte",
+  möhte: "möchte",
+  schone: "schöne",
+  schoene: "schöne",
+  moge: "möge",
+  zurük: "zurück",
+  zuruckkomen: "zurückkommen",
+  zuruckkommen: "zurückkommen",
+  gestren: "gestern",
+  gestan: "gestern",
+  heutte: "heute",
+  morgenn: "morgen",
+  nachte: "nächste",
+  näste: "nächste",
+  wocheende: "Wochenende",
+  wochennende: "Wochenende",
+  monttag: "Montag",
+  dinstag: "Dienstag",
+  dienstagk: "Dienstag",
+  mitwoch: "Mittwoch",
+  mittwochh: "Mittwoch",
+  donerstag: "Donnerstag",
+  donnersttag: "Donnerstag",
+  freittag: "Freitag",
+  sammstag: "Samstag",
+  sontag: "Sonntag",
+  sonnntag: "Sonntag",
+  abent: "Abend",
+  morggen: "Morgen",
+  somer: "Sommer",
+  wintter: "Winter",
+  marz: "März",
+  maerz: "März",
+  fruling: "Frühling",
+  fruehling: "Frühling",
+  schuhle: "Schule",
+  schulee: "Schule",
+  hotle: "Hotel",
+  hoteel: "Hotel",
+  caffe: "Café",
+  cafe: "Café",
+  resturant: "Restaurant",
+  restaurantt: "Restaurant",
+  adrese: "Adresse",
+  addresse: "Adresse",
+  hausnumer: "Hausnummer",
+  plazt: "Platz",
+  flughafe: "Flughafen",
+  flughaven: "Flughafen",
+  haltestellee: "Haltestelle",
+  uhrzeittt: "Uhrzeit",
+  bekomen: "bekommen",
+  bekomenn: "bekommen",
+  brachen: "brauchen",
+  brauchhen: "brauchen",
+  fraggen: "fragen",
+  lerhnen: "lernen",
+  lernnen: "lernen",
+  schriben: "schreiben",
+  schreieben: "schreiben",
+  sprehen: "sprechen",
+  arbeitten: "arbeiten",
+  machenn: "machen",
+  bringenn: "bringen",
+  bleipen: "bleiben",
+  bleibenn: "bleiben",
+  schlaffen: "schlafen",
+  kauffen: "kaufen",
+  kosttet: "kostet",
+  beginen: "beginnen",
+  begginen: "beginnen",
+  enddet: "endet",
+  anmellden: "anmelden",
+  absaggen: "absagen",
+  verschiben: "verschieben",
+  verschiebben: "verschieben",
+  feiren: "feiern",
+  trienken: "trinken",
+  esssen: "essen",
+  faahren: "fahren",
+  farhen: "fahren",
+  gehenn: "gehen",
+  sihen: "sehen",
+  wisenn: "wissen",
+  einfah: "einfach",
+  wichitg: "wichtig",
+  wichtigg: "wichtig",
+  leideer: "leider",
+  entschuldigungg: "Entschuldigung",
+  vilen: "vielen",
+  dankee: "danke",
+  grus: "Gruß",
+  grußse: "Grüße",
+  liebegrüße: "Liebe Grüße",
+  freundlischen: "freundlichen",
+  mitt: "mit",
+  bie: "bei",
+  ohnee: "ohne",
+  gegenn: "gegen",
+  zwichen: "zwischen",
+  neban: "neben",
+  trozdem: "trotzdem",
+  deshalp: "deshalb",
+  danch: "danach",
+  vileicht: "vielleicht",
+  gemeinsamm: "gemeinsam",
+  zusamen: "zusammen",
+  pünktlish: "pünktlich",
+  punktlich: "pünktlich",
+  möglisch: "möglich",
+  unbedinkt: "unbedingt",
+  wircklich: "wirklich",
+  glucklich: "glücklich",
+  glüklich: "glücklich",
+  hübschh: "hübsch",
+  günstik: "günstig",
+  gesunt: "gesund",
+  kraank: "krank",
+  kopfwehhe: "Kopfweh",
+  medezin: "Medizin",
+  apoteke: "Apotheke",
+  terminbestatigung: "Terminbestätigung",
+  bestatigung: "Bestätigung",
+  bestättigung: "Bestätigung",
+  gebueren: "Gebühren",
+  offentlich: "öffentlich",
+  öffentlisch: "öffentlich",
+  verfükbar: "verfügbar",
+  errecihbar: "erreichbar",
+  erreichbahr: "erreichbar",
+  ...(grammarReference.spellingCorrections || {})
+});
+
+const a2VerbForms = Object.freeze(grammarReference.verbForms || {});
+
+const modalFiniteForms = new Set(
+  ["können", "müssen", "möchten", "mögen", "wollen", "dürfen", "sollen"]
+    .flatMap((lemma) => Object.values(a2VerbForms[lemma] || {}))
+    .map((form) => form.toLocaleLowerCase("de-DE"))
+);
+const separableA2Verbs = Object.freeze(grammarReference.separableVerbs || {});
+const masculineA2Nouns = new Set(Object.entries(grammarReference.nounGender || {}).filter(([, gender]) => gender === "m").map(([noun]) => noun.toLocaleLowerCase("de-DE")));
+const feminineA2Nouns = new Set(Object.entries(grammarReference.nounGender || {}).filter(([, gender]) => gender === "f").map(([noun]) => noun.toLocaleLowerCase("de-DE")));
+const neuterA2Nouns = new Set(Object.entries(grammarReference.nounGender || {}).filter(([, gender]) => gender === "n").map(([noun]) => noun.toLocaleLowerCase("de-DE")));
+const issuePriorityOrder = Object.freeze({
+  meaning: 110,
+  verbposition: 100,
+  conjugation: 90,
+  case: 80,
+  preposition: 70,
+  modal: 60,
+  perfekt: 55,
+  spelling: 40,
+  capitalization: 30,
+  punctuation: 20,
+  style: 10
+});
+
+const verbFormIndex = (() => {
+  const index = new Map();
+  Object.entries(a2VerbForms).forEach(([lemma, forms]) => {
+    Object.values(forms).forEach((form) => {
+      const key = form.toLocaleLowerCase("de-DE");
+      if (!index.has(key)) index.set(key, new Set());
+      index.get(key).add(lemma);
+    });
+    if (!index.has(lemma)) index.set(lemma, new Set());
+    index.get(lemma).add(lemma);
+  });
+  return index;
+})();
 
 let state = {
   activeTask: 0,
   drafts: {},
+  freeDraft: "",
   completed: {},
   lastScore: null,
   bestScore: 0,
-  attempts: 0,
-  mode: "exam"
+  attempts: 0
 };
 
 let timerRemaining = TASK_SECONDS;
@@ -742,7 +1193,9 @@ let notificationTimeout = null;
 let lastEvaluation = null;
 let activePhraseCategory = "all";
 let sessionStarted = false;
-let pausedForPhraseGuide = false;
+let selectedStartType = "task";
+let isFreeWriting = false;
+let pausedForAwayView = false;
 let textareaSelection = { start: 0, end: 0 };
 
 const dom = {};
@@ -750,14 +1203,14 @@ const dom = {};
 function cacheDom() {
   [
     "headerTask", "timer", "pauseTimer", "resetTimer", "startView", "trainerView", "practiceView",
-    "startExam", "openPhraseGuide",
+    "startExam", "openPhraseGuide", "startTaskGrid", "startSelectionLabel",
     "taskDifficulty", "taskTopic", "taskTitle", "taskSituation", "taskInstruction",
-    "contentPoints", "taskPhrases", "sampleAnswer", "tipsToggle", "tipsPanel",
-    "sampleToggle", "samplePanel", "prevTask", "nextTask", "taskSelect", "studentText",
-    "inlineReview", "inlineReviewCount", "reviewedLetter", "inlineExplanations",
-    "wordCount", "charCount", "lengthStatus", "checkLetter", "openTeacher", "teacherPanel",
-    "teacherSource", "teacherResponse", "stepGuide", "stepNumber", "stepTitle", "stepText",
-    "refreshStep", "resultsPanel", "resultsContent", "closeResults", "notification",
+    "pointsSection", "contentPoints", "supportTools", "taskPhrases", "sampleAnswer", "tipsToggle", "tipsPanel",
+    "sampleToggle", "samplePanel", "taskNavigation", "prevTask", "nextTask", "taskSelect", "studentText",
+    "writingHeading", "writingHelp",
+    "inlineReview", "inlineReviewCount", "inlineReviewHelp", "reviewedLetter", "inlineExplanations",
+    "wordCount", "wordTarget", "charCount", "lengthStatus", "checkLetter",
+    "resultsPanel", "resultsContent", "closeResults", "notification",
     "phraseSearch", "phraseCategories", "phraseBankList", "bankPractice", "resetProgress"
   ].forEach((id) => {
     dom[id] = document.getElementById(id);
@@ -768,14 +1221,14 @@ function initializeApp() {
   cacheDom();
   loadProgress();
   buildTaskSelect();
+  renderStartTaskGrid();
   bindEvents();
   renderTask();
-  setMode(state.mode || "exam", false);
   updateCounters();
   renderTimer();
   renderPhraseCategories();
   renderPhraseBank();
-  switchView("trainer");
+  switchView("home");
 
   window.AYDA_TEST = Object.freeze({
     tasks,
@@ -786,11 +1239,16 @@ function initializeApp() {
     analyseContentPoints,
     calculateTelcScore,
     runLocalLanguageChecks,
+    deduplicateIssues,
+    buildCorrectedText,
+    grammarReference,
+    getSpellingCorrectionCount: () => Object.keys(commonSpellingCorrections).length,
     evaluateLetterSuitability,
     getExpectedFormality,
     insertAtCursor,
     getTimerRemaining: () => timerRemaining,
-    isSessionStarted: () => sessionStarted
+    isSessionStarted: () => sessionStarted,
+    isFreeWriting: () => isFreeWriting
   });
 }
 
@@ -801,7 +1259,6 @@ function bindEvents() {
     saveDraft();
     dom.inlineReview.hidden = true;
     dom.resultsPanel.hidden = true;
-    if (state.mode === "steps") updateStepGuide();
   });
 
   ["select", "keyup", "click", "focus"].forEach((eventName) => {
@@ -829,17 +1286,16 @@ function bindEvents() {
   dom.nextTask.addEventListener("click", () => changeTask(state.activeTask + 1));
   dom.taskSelect.addEventListener("change", () => changeTask(Number(dom.taskSelect.value)));
   dom.checkLetter.addEventListener("click", handleLetterCheck);
-  dom.openTeacher.addEventListener("click", () => setMode("teacher"));
   dom.closeResults.addEventListener("click", () => { dom.resultsPanel.hidden = true; });
   dom.pauseTimer.addEventListener("click", toggleTimerPause);
   dom.resetTimer.addEventListener("click", resetTimer);
-  dom.refreshStep.addEventListener("click", updateStepGuide);
   dom.resetProgress.addEventListener("click", resetProgress);
   dom.startExam.addEventListener("click", startExamSession);
   dom.openPhraseGuide.addEventListener("click", () => switchView("practice"));
-
-  document.querySelectorAll(".mode-button").forEach((button) => {
-    button.addEventListener("click", () => setMode(button.dataset.mode));
+  dom.startTaskGrid.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-start-type]");
+    if (!button) return;
+    selectStartOption(button.dataset.startType, button.dataset.taskIndex);
   });
 
   document.querySelectorAll(".nav-button").forEach((button) => {
@@ -848,11 +1304,6 @@ function bindEvents() {
 
   dom.tipsToggle.addEventListener("click", () => toggleAccordion(dom.tipsToggle, dom.tipsPanel));
   dom.sampleToggle.addEventListener("click", () => toggleAccordion(dom.sampleToggle, dom.samplePanel));
-
-  dom.teacherPanel.addEventListener("click", (event) => {
-    const button = event.target.closest("button[data-teacher-action]");
-    if (button) handleTeacherAction(button.dataset.teacherAction);
-  });
 
   dom.phraseSearch.addEventListener("input", renderPhraseBank);
   dom.phraseCategories.addEventListener("click", (event) => {
@@ -876,39 +1327,103 @@ function buildTaskSelect() {
   });
 }
 
-function renderTask() {
-  const task = tasks[state.activeTask];
-  dom.headerTask.textContent = `Soru ${String(task.id).padStart(2, "0")} / ${tasks.length}`;
-  dom.taskDifficulty.textContent = task.difficulty;
-  dom.taskTopic.textContent = task.topic;
-  dom.taskTitle.textContent = `Soru ${task.id}`;
-  dom.taskSituation.textContent = task.situation;
-  dom.taskInstruction.textContent = task.instruction;
-  dom.taskSelect.value = String(state.activeTask);
-  dom.prevTask.disabled = state.activeTask === 0;
-  dom.nextTask.disabled = state.activeTask === tasks.length - 1;
-
-  dom.contentPoints.replaceChildren();
-  task.points.forEach((item) => {
-    const li = document.createElement("li");
-    const label = document.createElement("span");
-    label.textContent = item.label;
-    const status = document.createElement("span");
-    status.className = "point-state";
-    status.textContent = "";
-    li.append(label, status);
-    dom.contentPoints.append(li);
+function renderStartTaskGrid() {
+  dom.startTaskGrid.replaceChildren();
+  tasks.forEach((task, index) => {
+    const button = element("button", "start-task-option", `Mektup ${task.id}`);
+    button.type = "button";
+    button.dataset.startType = "task";
+    button.dataset.taskIndex = String(index);
+    button.title = task.topic;
+    const selected = selectedStartType === "task" && state.activeTask === index;
+    button.classList.toggle("active", selected);
+    button.setAttribute("aria-pressed", String(selected));
+    dom.startTaskGrid.append(button);
   });
 
-  renderTaskPhrases(task);
-  dom.sampleAnswer.textContent = task.sampleAnswer;
-  dom.studentText.value = state.drafts[String(task.id)] || "";
+  const freeButton = element("button", "start-task-option free-option");
+  freeButton.type = "button";
+  freeButton.dataset.startType = "free";
+  freeButton.append(
+    element("strong", "", "Serbest Metin / Mektup"),
+    element("small", "", "Kendi Almanca yazınızı kontrol edin")
+  );
+  const freeSelected = selectedStartType === "free";
+  freeButton.classList.toggle("active", freeSelected);
+  freeButton.setAttribute("aria-pressed", String(freeSelected));
+  dom.startTaskGrid.append(freeButton);
+
+  dom.startSelectionLabel.textContent = freeSelected ? "Serbest Metin / Mektup" : `Mektup ${tasks[state.activeTask].id}`;
+  dom.startExam.textContent = freeSelected ? "Serbest Yazmayı Başlat" : `Mektup ${tasks[state.activeTask].id}'i Başlat`;
+}
+
+function selectStartOption(type, taskIndex) {
+  selectedStartType = type === "free" ? "free" : "task";
+  if (selectedStartType === "task") {
+    const index = Number(taskIndex);
+    if (Number.isInteger(index) && index >= 0 && index < tasks.length) state.activeTask = index;
+  }
+  saveProgress();
+  renderStartTaskGrid();
+}
+
+function renderTask() {
+  const task = tasks[state.activeTask];
+  dom.contentPoints.replaceChildren();
+  if (isFreeWriting) {
+    dom.headerTask.textContent = "Serbest yazma";
+    dom.taskDifficulty.textContent = "SERBEST";
+    dom.taskTopic.textContent = "Kendi Almanca yazınız";
+    dom.taskTitle.textContent = "Serbest Metin / Mektup";
+    dom.taskSituation.textContent = "İstediğiniz Almanca metni veya mektubu yazabilirsiniz.";
+    dom.taskInstruction.textContent = "Sistem görev maddesi aramaz; yazım ve dilbilgisi kontrolü yapar. Mektup yazarsanız hitap ve kapanış da gösterilir.";
+    dom.pointsSection.hidden = true;
+    dom.supportTools.hidden = true;
+    dom.taskNavigation.hidden = true;
+    dom.taskPhrases.replaceChildren();
+    dom.sampleAnswer.textContent = "";
+    dom.writingHeading.textContent = "Almanca metninizi buraya yazın";
+    dom.writingHelp.textContent = "Mektup, kısa yazı veya istediğiniz başka bir Almanca metin olabilir.";
+    dom.inlineReviewHelp.textContent = "Yazdığınız metnin kontrol edilmiş kopyasıdır. Her numaranın açıklaması hemen alttadır.";
+    dom.studentText.placeholder = "Almanca metninizi buraya yazın…";
+    dom.studentText.value = state.freeDraft || "";
+  } else {
+    dom.headerTask.textContent = `Soru ${String(task.id).padStart(2, "0")} / ${tasks.length}`;
+    dom.taskDifficulty.textContent = task.difficulty;
+    dom.taskTopic.textContent = task.topic;
+    dom.taskTitle.textContent = `Mektup ${task.id}`;
+    dom.taskSituation.textContent = task.situation;
+    dom.taskInstruction.textContent = task.instruction;
+    dom.taskSelect.value = String(state.activeTask);
+    dom.prevTask.disabled = state.activeTask === 0;
+    dom.nextTask.disabled = state.activeTask === tasks.length - 1;
+    dom.pointsSection.hidden = false;
+    dom.supportTools.hidden = false;
+    dom.taskNavigation.hidden = false;
+    task.points.forEach((item) => {
+      const li = document.createElement("li");
+      const label = document.createElement("span");
+      label.textContent = item.label;
+      const status = document.createElement("span");
+      status.className = "point-state";
+      status.textContent = "";
+      li.append(label, status);
+      dom.contentPoints.append(li);
+    });
+    renderTaskPhrases(task);
+    dom.sampleAnswer.textContent = task.sampleAnswer;
+    dom.writingHeading.textContent = "Almanca mektubunuzu buraya yazın";
+    dom.writingHelp.textContent = "Kısa ve basit yazmanız yeterli. Yanlış yapmaktan korkmayın.";
+    dom.inlineReviewHelp.textContent = "Yazdığınız mektubun kontrol edilmiş kopyasıdır. Her numaranın açıklaması hemen alttadır.";
+    dom.studentText.placeholder = "Liebe Anna,\n\nvielen Dank für deine E-Mail. ...";
+    dom.studentText.value = state.drafts[String(task.id)] || "";
+  }
+
   closeAccordions();
   dom.resultsPanel.hidden = true;
   dom.inlineReview.hidden = true;
   lastEvaluation = null;
   updateCounters();
-  updateStepGuide();
 }
 
 function renderTaskPhrases(task) {
@@ -929,8 +1444,11 @@ function renderTaskPhrases(task) {
 function changeTask(nextIndex) {
   if (nextIndex < 0 || nextIndex >= tasks.length || nextIndex === state.activeTask) return;
   saveDraft();
+  isFreeWriting = false;
+  selectedStartType = "task";
   state.activeTask = nextIndex;
   saveProgress();
+  renderStartTaskGrid();
   resetTimer(false);
   renderTask();
   window.scrollTo({ top: 0, behavior: "smooth" });
@@ -946,6 +1464,15 @@ function updateCounters() {
   const words = countWords(text);
   dom.wordCount.textContent = String(words);
   dom.charCount.textContent = String(text.length);
+
+  if (isFreeWriting) {
+    dom.wordTarget.textContent = "";
+    dom.lengthStatus.textContent = words === 0 ? "Yazmaya başlayın." : "Serbest yazı";
+    dom.lengthStatus.className = words === 0 ? "length-status warn" : "length-status good";
+    return;
+  }
+
+  dom.wordTarget.textContent = " / yaklaşık 40";
 
   let message = "Biraz daha yazabilirsin.";
   let className = "length-status warn";
@@ -1090,11 +1617,50 @@ function calculateTelcScore(task, text) {
   };
 }
 
-function makeLocalIssue({ ruleId, type, explanation, original, suggestion, offset, source = "local" }) {
+function classifyIssuePriority(type, ruleId = "") {
+  const value = normalizeText(`${type || ""} ${ruleId || ""}`);
+  if (value.includes("eksik fiil") || value.includes("fazla fiil") || value.includes("kelime secimi")) return issuePriorityOrder.meaning;
+  if (value.includes("verbposition") || value.includes("wortstellung") || value.includes("fragesatz") || value.includes("nebensatz") || value.includes("trennbar")) return issuePriorityOrder.verbposition;
+  if (value.includes("verbkonjugation") || value.includes("ozne-fiil") || value.includes("grammatik / verb")) return issuePriorityOrder.conjugation;
+  if (value.includes("anrede") || value.includes("grussformel")) return issuePriorityOrder.case;
+  if (value.includes("artikel") || value.includes("akkusativ") || value.includes("dativ") || value.includes("possessiv") || value.includes("personalpronomen") || value.includes("genus")) return issuePriorityOrder.case;
+  if (value.includes("praposition") || value.includes("zeitangabe")) return issuePriorityOrder.preposition;
+  if (value.includes("modal") || value.includes("infinitiv")) return issuePriorityOrder.modal;
+  if (value.includes("perfekt") || value.includes("hilfsverb")) return issuePriorityOrder.perfekt;
+  if (value.includes("rechtschreib") || value.includes("yazim") || value.includes("yazım") || value.includes("spelling")) return issuePriorityOrder.spelling;
+  if (value.includes("gross") || value.includes("buyuk harf")) return issuePriorityOrder.capitalization;
+  if (value.includes("satzzeichen") || value.includes("noktalama")) return issuePriorityOrder.punctuation;
+  return issuePriorityOrder.style;
+}
+
+function makeLocalIssue({
+  ruleId,
+  type,
+  explanation,
+  original,
+  suggestion,
+  offset,
+  source = "local",
+  severity = "ERROR",
+  confidence = "high",
+  safeToApply,
+  priority
+}) {
+  const normalizedConfidence = ["high", "medium", "low"].includes(String(confidence).toLocaleLowerCase("en-US"))
+    ? String(confidence).toLocaleLowerCase("en-US")
+    : "low";
+  let normalizedSeverity = ["ERROR", "IMPROVEMENT", "INFO"].includes(String(severity).toLocaleUpperCase("en-US"))
+    ? String(severity).toLocaleUpperCase("en-US")
+    : "ERROR";
+  if (normalizedConfidence === "low" && normalizedSeverity === "ERROR") normalizedSeverity = "INFO";
   return {
     source,
     ruleId,
     type,
+    severity: normalizedSeverity,
+    confidence: normalizedConfidence,
+    safeToApply: safeToApply ?? (source !== "suitability" && normalizedConfidence === "high" && normalizedSeverity !== "INFO"),
+    priority: Number.isFinite(priority) ? priority : classifyIssuePriority(type, ruleId),
     message: explanation,
     explanation,
     original,
@@ -1112,6 +1678,684 @@ function getExpectedFormality(task) {
     : "informal";
 }
 
+function runSpellingChecks(text) {
+  const value = String(text);
+  const issues = [];
+  for (const match of value.matchAll(/[\p{L}]+/gu)) {
+    const key = match[0].toLocaleLowerCase("de-DE");
+    const preferred = commonSpellingCorrections[key];
+    if (!preferred) continue;
+    const startsUppercase = match[0][0] === match[0][0].toLocaleUpperCase("de-DE");
+    const suggestion = startsUppercase && preferred[0] === preferred[0].toLocaleLowerCase("de-DE")
+      ? preferred[0].toLocaleUpperCase("de-DE") + preferred.slice(1)
+      : preferred;
+    issues.push(makeLocalIssue({
+      ruleId: `spelling-${key}`,
+      type: "Yazım",
+      explanation: `Bu kelimenin standart Almanca yazımı “${suggestion}” şeklindedir.`,
+      original: match[0],
+      suggestion,
+      offset: match.index
+    }));
+  }
+  return issues;
+}
+
+function preserveInitialCase(original, suggestion) {
+  const originalLetter = String(original).match(/\p{L}/u);
+  const suggestionLetter = String(suggestion).match(/\p{L}/u);
+  if (!originalLetter || !suggestionLetter) return suggestion;
+  if (originalLetter[0] !== originalLetter[0].toLocaleUpperCase("de-DE")) return suggestion;
+  const index = suggestion.indexOf(suggestionLetter[0]);
+  return suggestion.slice(0, index) + suggestionLetter[0].toLocaleUpperCase("de-DE") + suggestion.slice(index + suggestionLetter[0].length);
+}
+
+function escapeRegexText(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function getSentenceSpans(text) {
+  const spans = [];
+  for (const match of String(text).matchAll(/[^.!?\r\n]+[.!?]?/g)) {
+    const leading = match[0].match(/^\s*/)?.[0].length || 0;
+    const trailing = match[0].match(/\s*$/)?.[0].length || 0;
+    const value = match[0].slice(leading, match[0].length - trailing);
+    if (!value) continue;
+    spans.push({ text: value, start: match.index + leading, end: match.index + match[0].length - trailing });
+  }
+  return spans;
+}
+
+function personForSubject(subject) {
+  if (subject === "Sie") return "Sie";
+  const key = String(subject).toLocaleLowerCase("de-DE");
+  if (["ich", "du", "er", "es", "wir", "ihr"].includes(key)) return key;
+  if (["man", "meine mutter", "mein bruder", "der kurs", "die party", "das treffen"].includes(key)) return "er";
+  return null;
+}
+
+function correctedVerbForSubject(form, subject) {
+  const person = personForSubject(subject);
+  if (!person) return form;
+  const candidates = verbFormIndex.get(String(form).toLocaleLowerCase("de-DE"));
+  if (!candidates) return form;
+  for (const lemma of candidates) {
+    const expected = a2VerbForms[lemma]?.[person];
+    if (expected) return expected;
+  }
+  return form;
+}
+
+function infinitiveForFiniteForm(form) {
+  const key = String(form).toLocaleLowerCase("de-DE");
+  const special = { mitbringe: "mitbringen", ankomme: "ankommen", abhole: "abholen", anrufe: "anrufen", einlade: "einladen", aufstehe: "aufstehen", mitkomme: "mitkommen", zurückkomme: "zurückkommen", vorbeikomme: "vorbeikommen" };
+  if (special[key]) return special[key];
+  const candidates = verbFormIndex.get(key);
+  if (!candidates) return null;
+  for (const lemma of candidates) {
+    if (lemma !== key) return lemma;
+  }
+  return null;
+}
+
+function runConjugationChecks(text) {
+  const value = String(text);
+  const issues = [];
+  const words = [...value.matchAll(/\p{L}+/gu)];
+  for (let index = 0; index < words.length - 1; index += 1) {
+    const subject = words[index][0];
+    const person = personForSubject(subject);
+    if (!person) continue;
+    const verb = words[index + 1];
+    const between = value.slice(words[index].index + subject.length, verb.index);
+    if (!/^\s+$/u.test(between)) continue;
+    const previousWord = words[index - 1];
+    const twoWordsBefore = words[index - 2];
+    const followingWord = words[index + 2];
+    const previousIsModal = previousWord && modalFiniteForms.has(previousWord[0].toLocaleLowerCase("de-DE"));
+    const twoWordsBeforeIsModal = twoWordsBefore && modalFiniteForms.has(twoWordsBefore[0].toLocaleLowerCase("de-DE"));
+    const followingIsModal = followingWord && modalFiniteForms.has(followingWord[0].toLocaleLowerCase("de-DE"));
+    if (previousIsModal || twoWordsBeforeIsModal || followingIsModal) continue;
+    const candidates = verbFormIndex.get(verb[0].toLocaleLowerCase("de-DE"));
+    if (!candidates) continue;
+    for (const lemma of candidates) {
+      const expected = a2VerbForms[lemma]?.[person];
+      if (!expected || expected === verb[0].toLocaleLowerCase("de-DE")) continue;
+      issues.push(makeLocalIssue({
+        ruleId: `conjugation-${lemma}-${person}`,
+        type: "Verbkonjugation / Özne-fiil uyumu",
+        explanation: `‘${subject}’ öznesiyle fiilin doğru çekimi ‘${expected}’ olur.`,
+        original: verb[0],
+        suggestion: expected,
+        offset: verb.index,
+        priority: issuePriorityOrder.conjugation
+      }));
+      break;
+    }
+  }
+  return issues;
+}
+
+function runModalChecks(text) {
+  const issues = [];
+  getSentenceSpans(text).forEach((span) => {
+    const core = span.text.replace(/[.!?]+$/u, "").trim();
+    const modal = core.match(/\b(ich|du|er|sie|es|wir|ihr|Sie)\s+(kann|kannst|können|könnt|muss|musst|müssen|müsst|möchte|möchtest|möchten|möchtet|mag|magst|mögen|mögt|will|willst|wollen|wollt|darf|darfst|dürfen|dürft|soll|sollst|sollen|sollt)\b/iu);
+    if (!modal) return;
+    const lastWord = [...core.matchAll(/\p{L}+/gu)].at(-1);
+    if (!lastWord || lastWord.index <= modal.index + modal[0].length) return;
+    const infinitive = infinitiveForFiniteForm(lastWord[0]);
+    if (infinitive && !modalFiniteForms.has(lastWord[0].toLocaleLowerCase("de-DE"))) {
+      issues.push(makeLocalIssue({
+        ruleId: "modal-final-infinitive",
+        type: "Modalverb / Infinitiv",
+        explanation: "Modal fiilden sonra ana fiil mastar hâlinde cümlenin sonunda kullanılır.",
+        original: lastWord[0],
+        suggestion: infinitive,
+        offset: span.start + lastWord.index,
+        priority: issuePriorityOrder.modal
+      }));
+    }
+
+    const naturalOrder = core.match(/^(ich|du|er|sie|es|wir|ihr|Sie)\s+(kann|kannst|können|könnt|muss|musst|müssen|müsst|möchte|möchtest|möchten|möchtet|will|willst|wollen|wollt)\s+(kommen|gehen|arbeiten|fahren|helfen|bleiben|schlafen)\s+(heute|morgen|später|am\s+\p{L}+|um\s+\d{1,2}(?::\d{2})?\s+Uhr)$/iu);
+    if (naturalOrder) {
+      const suggestion = `${naturalOrder[1]} ${naturalOrder[2]} ${naturalOrder[4]} ${naturalOrder[3]}`;
+      issues.push(makeLocalIssue({
+        ruleId: "modal-natural-order",
+        type: "Modalverb / Satzstellung",
+        explanation: "Cümle anlaşılır; zaman ifadesi ana fiilden önce daha doğal durur.",
+        original: core,
+        suggestion: preserveInitialCase(core, suggestion),
+        offset: span.start,
+        severity: "IMPROVEMENT",
+        confidence: "medium",
+        safeToApply: false,
+        priority: issuePriorityOrder.style
+      }));
+    }
+  });
+  return issues;
+}
+
+function runSeparableVerbChecks(text) {
+  const issues = [];
+  getSentenceSpans(text).forEach((span) => {
+    const core = span.text.replace(/[.!?]+$/u, "").trim();
+    Object.entries(separableA2Verbs).forEach(([infinitive, data]) => {
+      const joinedForms = [...new Set([infinitive, ...Object.values(data.forms).map((form) => `${data.particle}${form}`)])]
+        .sort((a, b) => b.length - a.length)
+        .join("|");
+      const subjectPattern = "(ich|du|er|sie|es|wir|ihr|Sie)";
+      const joinedPattern = new RegExp(`^${subjectPattern}\\s+(${joinedForms})(?:\\s+(.+))?$`, "iu");
+      const joined = core.match(joinedPattern);
+      if (joined) {
+        const person = personForSubject(joined[1]);
+        const finite = person ? data.forms[person] : null;
+        if (finite) {
+          const middle = joined[3] ? ` ${joined[3]}` : "";
+          issues.push(makeLocalIssue({
+            ruleId: `separable-joined-${infinitive}`,
+            type: "Trennbares Verb / Verbposition",
+            explanation: `Ana cümlede ‘${infinitive}’ ayrılır; ‘${data.particle}’ parçası sona gider.`,
+            original: core,
+            suggestion: `${joined[1]} ${finite}${middle} ${data.particle}`,
+            offset: span.start,
+            priority: issuePriorityOrder.verbposition
+          }));
+        }
+      }
+
+      const finiteForms = [...new Set(Object.values(data.forms))].sort((a, b) => b.length - a.length).join("|");
+      const middleParticlePattern = new RegExp(`^${subjectPattern}\\s+(${finiteForms})\\s+${data.particle}\\s+(.+)$`, "iu");
+      const middleParticle = core.match(middleParticlePattern);
+      const tailLooksLikePrepositionalObject = middleParticle && /^(?:der|die|das|dem|den|ein(?:e[rmn]?)?|mein(?:e[rmn]?)?|dein(?:e[rmn]?)?|sein(?:e[rmn]?)?|ihr(?:e[rmn]?)?|mir|dir|ihm|ihr|uns|euch)\b/iu.test(middleParticle[3]);
+      const ambiguousMitkommen = infinitive === "mitkommen";
+      if (middleParticle && !ambiguousMitkommen && !(data.particle === "mit" && tailLooksLikePrepositionalObject) && !middleParticle[3].toLocaleLowerCase("de-DE").endsWith(` ${data.particle}`)) {
+        issues.push(makeLocalIssue({
+          ruleId: `separable-particle-order-${infinitive}`,
+          type: "Trennbares Verb / Verbposition",
+          explanation: `Ayrılan ‘${data.particle}’ parçası ana cümlenin sonuna gider.`,
+          original: core,
+          suggestion: `${middleParticle[1]} ${middleParticle[2]} ${middleParticle[3]} ${data.particle}`,
+          offset: span.start,
+          priority: issuePriorityOrder.verbposition
+        }));
+      }
+    });
+  });
+  return issues;
+}
+
+function runSentenceOrderChecks(text) {
+  const issues = [];
+  const timeStart = "(?:Heute|Morgen|Danach|Deshalb|Dann|Am\\s+(?:Montag|Dienstag|Mittwoch|Donnerstag|Freitag|Samstag|Sonntag|Wochenende|Morgen|Abend)|Um\\s+\\d{1,2}(?::\\d{2})?\\s+Uhr|Im\\s+(?:März|Sommer|Winter)|Nächste\\s+Woche)";
+  const subject = "(?:ich|du|er|sie|es|wir|ihr|Sie)";
+  const timeFirstPattern = new RegExp(`^(${timeStart})\\s+(${subject})\\s+(\\p{L}+)`, "iu");
+  const subjectFirstPattern = new RegExp(`^(${subject})\\s+(${timeStart})\\s+(\\p{L}+)`, "iu");
+
+  getSentenceSpans(text).forEach((span) => {
+    const core = span.text.replace(/[.!?]+$/u, "").trim();
+    const timeFirst = core.match(timeFirstPattern);
+    if (timeFirst && verbFormIndex.has(timeFirst[3].toLocaleLowerCase("de-DE"))) {
+      const verb = correctedVerbForSubject(timeFirst[3], timeFirst[2]);
+      issues.push(makeLocalIssue({
+        ruleId: "time-fronted-v2",
+        type: "Verbposition / Zeitangabe",
+        explanation: "Zaman ifadesi baştaysa çekimli fiil ikinci, özne üçüncü konumda olur.",
+        original: timeFirst[0],
+        suggestion: `${timeFirst[1]} ${verb} ${timeFirst[2]}`,
+        offset: span.start,
+        priority: issuePriorityOrder.verbposition
+      }));
+    }
+
+    const subjectFirst = core.match(subjectFirstPattern);
+    if (subjectFirst && verbFormIndex.has(subjectFirst[3].toLocaleLowerCase("de-DE"))) {
+      const verb = correctedVerbForSubject(subjectFirst[3], subjectFirst[1]);
+      issues.push(makeLocalIssue({
+        ruleId: "subject-time-v2",
+        type: "Verbposition / Zeitangabe",
+        explanation: "Ana cümlede çekimli fiil genellikle ikinci konumda olur.",
+        original: subjectFirst[0],
+        suggestion: `${subjectFirst[1]} ${verb} ${subjectFirst[2]}`,
+        offset: span.start,
+        priority: issuePriorityOrder.verbposition
+      }));
+    }
+
+    const whQuestion = core.match(/^(Was|Wann|Wo|Warum|Wie)\s+(ich|du|er|sie|es|wir|ihr|Sie)\s+(\p{L}+)/iu);
+    if (whQuestion && verbFormIndex.has(whQuestion[3].toLocaleLowerCase("de-DE"))) {
+      const verb = correctedVerbForSubject(whQuestion[3], whQuestion[2]);
+      issues.push(makeLocalIssue({
+        ruleId: "wh-question-v2",
+        type: "Fragesatz / Verbposition",
+        explanation: "Doğrudan soruda soru kelimesinden sonra çekimli fiil, ardından özne gelir.",
+        original: whQuestion[0],
+        suggestion: `${whQuestion[1]} ${verb} ${whQuestion[2]}`,
+        offset: span.start,
+        priority: issuePriorityOrder.verbposition
+      }));
+    }
+  });
+  return issues;
+}
+
+function runSubordinateClauseChecks(text) {
+  const value = String(text);
+  const issues = [];
+  const supportedConjunctions = (grammarReference.subordinateConjunctions || ["weil", "dass", "wenn"]).join("|");
+  const subject = "(ich|du|er|sie|es|wir|ihr|Sie|meine Mutter|mein Bruder|der Kurs|die Party|das Treffen)";
+  const finite = "(bin|bist|ist|sind|seid|habe|hast|hat|haben|habt|kann|kannst|können|könnt|muss|musst|müssen|müsst|möchte|möchtest|möchten|möchtet|will|willst|wollen|wollt|darf|darfst|dürfen|dürft|soll|sollst|sollen|sollt|beginnt|endet)";
+  const pattern = new RegExp(`\\b(${supportedConjunctions})\\s+${subject}\\s+${finite}\\s+([^,.!?;\\n]+)`, "giu");
+  for (const match of value.matchAll(pattern)) {
+    const conjunction = match[1];
+    const clauseSubject = match[2];
+    const originalFinite = match[3];
+    const tail = match[4].trim();
+    if (!tail) continue;
+    const correctedFinite = correctedVerbForSubject(originalFinite, clauseSubject);
+    issues.push(makeLocalIssue({
+      ruleId: `${conjunction.toLocaleLowerCase("de-DE")}-verb-final`,
+      type: `Nebensatz / ${conjunction} / Verbposition`,
+      explanation: `‘${conjunction}’ ile başlayan yan cümlede çekimli fiil sona gider.`,
+      original: match[0],
+      suggestion: `${conjunction} ${clauseSubject} ${tail} ${correctedFinite}`,
+      offset: match.index,
+      priority: issuePriorityOrder.verbposition
+    }));
+  }
+  return issues;
+}
+
+function runCaseAndPrepositionChecks(text) {
+  const value = String(text);
+  const issues = [];
+  const masculine = [...masculineA2Nouns].join("|");
+  const feminine = [...feminineA2Nouns].join("|");
+  const allDativeNouns = [...masculineA2Nouns, ...feminineA2Nouns, ...neuterA2Nouns].join("|");
+  const accusativeArticles = {
+    ...(grammarReference.articleDeclension?.accusative?.m || {}),
+    ...(grammarReference.possessiveDeclension?.accusativeMasculine || {}),
+    eine: "einen",
+    keine: "keinen"
+  };
+  const accusativePattern = new RegExp(`\\b(habe|hast|hat|haben|brauche|brauchst|braucht|sehen|sehe|siehst|sieht|besuche|besuchst|besucht|treffe|triffst|trifft|bringe|bringst|bringt|kaufe|kaufst|kauft)\\s+(der|ein|eine|mein|meine|dein|deine|sein|seine|ihr|ihre|kein|keine)\\s+(${masculine})\\b`, "giu");
+  for (const match of value.matchAll(accusativePattern)) {
+    const article = match[2].toLocaleLowerCase("de-DE");
+    const expected = accusativeArticles[article];
+    if (!expected || expected === article) continue;
+    const original = `${match[2]} ${match[3]}`;
+    const offset = match.index + match[0].toLocaleLowerCase("de-DE").lastIndexOf(original.toLocaleLowerCase("de-DE"));
+    issues.push(makeLocalIssue({
+      ruleId: "masculine-accusative",
+      type: "Artikel / Akkusativ",
+      explanation: `‘${match[3]}’ eril bir isimdir; burada Akkusativ biçimi ‘${expected}’ olur.`,
+      original,
+      suggestion: `${expected} ${commonGermanNouns[match[3].toLocaleLowerCase("de-DE")] || match[3]}`,
+      offset,
+      priority: issuePriorityOrder.case
+    }));
+  }
+
+  const dativePrepositions = (grammarReference.prepositionCases?.dative || ["aus", "bei", "mit", "von", "zu"])
+    .filter((preposition) => !["nach", "seit"].includes(preposition))
+    .join("|");
+  const dativePattern = new RegExp(`\\b(${dativePrepositions})\\s+(der|die|das|den|ein|eine|einen|kein|keine|keinen|mein|meine|meinen|dein|deine|deinen|sein|seine|seinen|ihr|ihre|ihren|unser|unsere|unseren|euer|eure|euren)\\s+(${allDativeNouns})\\b`, "giu");
+  for (const match of value.matchAll(dativePattern)) {
+    const noun = match[3].toLocaleLowerCase("de-DE");
+    const gender = feminineA2Nouns.has(noun) ? "f" : "m";
+    const base = match[2].toLocaleLowerCase("de-DE").replace(/e?n$/u, "");
+    const dativeMap = gender === "f"
+      ? {
+          ...(grammarReference.articleDeclension?.dative?.f || {}),
+          ...(grammarReference.possessiveDeclension?.dativeFeminine || {}),
+          das: "der",
+          den: "der",
+          ein: "einer",
+          einen: "einer",
+          kein: "keiner"
+        }
+      : {
+          ...(grammarReference.articleDeclension?.dative?.m || {}),
+          ...(grammarReference.possessiveDeclension?.dativeMasculineNeuter || {}),
+          die: "dem",
+          das: "dem",
+          den: "dem",
+          eine: "einem",
+          einen: "einem",
+          keine: "keinem"
+        };
+    const expected = dativeMap[match[2].toLocaleLowerCase("de-DE")] || dativeMap[base];
+    if (!expected || expected === match[2].toLocaleLowerCase("de-DE")) continue;
+    const original = `${match[2]} ${match[3]}`;
+    const offset = match.index + match[0].toLocaleLowerCase("de-DE").lastIndexOf(original.toLocaleLowerCase("de-DE"));
+    issues.push(makeLocalIssue({
+      ruleId: "dative-after-preposition",
+      type: "Artikel / Dativ / Präposition",
+      explanation: `‘${match[1]}’ edatından sonra Dativ kullanılır: ${expected} ${match[3]}.`,
+      original,
+      suggestion: `${expected} ${commonGermanNouns[noun] || match[3]}`,
+      offset,
+      priority: issuePriorityOrder.case + 2
+    }));
+  }
+
+  const accusativePrepositions = (grammarReference.prepositionCases?.accusative || ["durch", "für", "gegen", "ohne"])
+    .filter((preposition) => preposition !== "um")
+    .join("|");
+  const accusativePrepositionPattern = new RegExp(`\\b(${accusativePrepositions})\\s+(der|ein|eine|mein|meine|dein|deine|sein|seine|ihr|ihre|kein|keine|unser|unsere|euer|eure)\\s+(${masculine})\\b`, "giu");
+  for (const match of value.matchAll(accusativePrepositionPattern)) {
+    const article = match[2].toLocaleLowerCase("de-DE");
+    const expected = accusativeArticles[article];
+    if (!expected || expected === article) continue;
+    const original = `${match[2]} ${match[3]}`;
+    const offset = match.index + match[0].toLocaleLowerCase("de-DE").lastIndexOf(original.toLocaleLowerCase("de-DE"));
+    issues.push(makeLocalIssue({
+      ruleId: "accusative-after-preposition",
+      type: "Artikel / Akkusativ / Präposition",
+      explanation: `‘${match[1]}’ edatından sonra Akkusativ kullanılır: ${expected} ${match[3]}.`,
+      original,
+      suggestion: `${expected} ${commonGermanNouns[match[3].toLocaleLowerCase("de-DE")] || match[3]}`,
+      offset,
+      priority: issuePriorityOrder.case + 2
+    }));
+  }
+
+  const femininePossessivePattern = new RegExp(`\\b(mein|dein|sein|ihr|unser|euer)\\s+(${feminine})\\b`, "giu");
+  for (const match of value.matchAll(femininePossessivePattern)) {
+    issues.push(makeLocalIssue({
+      ruleId: "feminine-possessive",
+      type: "Possessivartikel / Genus",
+      explanation: `‘${match[2]}’ dişil bir isimdir; iyelik sözcüğü ‘${match[1]}e’ olur.`,
+      original: match[0],
+      suggestion: `${grammarReference.possessiveDeclension?.nominativeFeminine?.[match[1]] || `${match[1]}e`} ${commonGermanNouns[match[2].toLocaleLowerCase("de-DE")] || match[2]}`,
+      offset: match.index,
+      priority: issuePriorityOrder.case - 2
+    }));
+  }
+
+  const ambiguousMasculine = new RegExp(`\\b(meine|deine|seine|ihre|unsere|eure)\\s+(${masculine})\\b`, "giu");
+  for (const match of value.matchAll(ambiguousMasculine)) {
+    const stem = match[1].slice(0, -1);
+    issues.push(makeLocalIssue({
+      ruleId: "masculine-possessive-context",
+      type: "Possessivartikel / Genus",
+      explanation: `‘${match[2]}’ eril bir isimdir; cümledeki göreve göre ‘${stem}’ veya ‘${stem}n’ gerekir.`,
+      original: match[0],
+      suggestion: `${stem} ${commonGermanNouns[match[2].toLocaleLowerCase("de-DE")] || match[2]}`,
+      offset: match.index,
+      severity: "IMPROVEMENT",
+      confidence: "low",
+      safeToApply: false,
+      priority: issuePriorityOrder.style
+    }));
+  }
+
+  const fixedPrepositions = [
+    { pattern: /\bbei arzt\b/giu, replacement: "beim Arzt", explanation: "Bir kişinin yanında/bulunduğun yerde ‘beim Arzt’ kullanılır." },
+    { pattern: /\bzu arzt\b/giu, replacement: "zum Arzt", explanation: "Hedef bildirirken ‘zum Arzt’ kullanılır." },
+    { pattern: /\bzu schule\b/giu, replacement: "zur Schule", explanation: "‘Schule’ ile yön bildirirken ‘zur Schule’ kullanılır." },
+    { pattern: /\bzu bahnhof\b/giu, replacement: "zum Bahnhof", explanation: "‘Bahnhof’ ile yön bildirirken ‘zum Bahnhof’ kullanılır." },
+    { pattern: /\bin (märz|sommer|winter)\b/giu, replacement: "im $1", explanation: "Ay ve mevsim adlarından önce burada ‘im’ kullanılır." },
+    { pattern: /\bmit (auto|bus|zug|fahrrad)\b/giu, replacement: "mit dem $1", explanation: "Ulaşım aracıyla ‘mit dem …’ yapısı kullanılır." },
+    { pattern: /\bseit zwei tage\b/giu, replacement: "seit zwei Tagen", explanation: "‘seit’ Dativ ister; çoğul biçim burada ‘seit zwei Tagen’ olur." },
+    { pattern: /\bseit eine woche\b/giu, replacement: "seit einer Woche", explanation: "‘seit’ Dativ ister: seit einer Woche." },
+    { pattern: /\bich bin nach (berlin|hamburg|münchen|köln|bonn|bremen|frankfurt|dresden|leipzig)\b(?!\s+(?:gefahren|gegangen|gekommen|gereist)\b)/giu, replacement: "ich bin in $1", explanation: "Bulunulan şehri söylerken ‘in’ kullanılır; ‘nach’ yön bildirir." },
+    { pattern: /\bich bin in die schule\b/giu, replacement: "ich bin in der Schule", explanation: "Sabit yerde ‘Wo?’ sorusuna Dativ ile cevap verilir: in der Schule." },
+    { pattern: /\bich gehe in der schule\b/giu, replacement: "ich gehe in die Schule", explanation: "Bir yere yönelirken ‘Wohin?’ sorusuna burada Akkusativ ile cevap verilir." }
+  ];
+  fixedPrepositions.forEach((rule, index) => {
+    for (const match of value.matchAll(rule.pattern)) {
+      let suggestion = preserveInitialCase(match[0], match[0].replace(new RegExp(rule.pattern.source, rule.pattern.flags.replace("g", "")), rule.replacement));
+      const fixedNounForms = { märz: "März", sommer: "Sommer", winter: "Winter", auto: "Auto", bus: "Bus", zug: "Zug", fahrrad: "Fahrrad", arzt: "Arzt", schule: "Schule", bahnhof: "Bahnhof" };
+      suggestion = suggestion.replace(/\b(märz|sommer|winter|auto|bus|zug|fahrrad|arzt|schule|bahnhof)\b/giu, (word) => fixedNounForms[word.toLocaleLowerCase("de-DE")] || word);
+      issues.push(makeLocalIssue({
+        ruleId: `fixed-preposition-${index}`,
+        type: "Präposition / Artikel",
+        explanation: rule.explanation,
+        original: match[0],
+        suggestion,
+        offset: match.index,
+        priority: issuePriorityOrder.preposition
+      }));
+    }
+  });
+
+  return issues;
+}
+
+function runPronounCaseChecks(text) {
+  const value = String(text);
+  const issues = [];
+  const accusativeToDative = grammarReference.pronouns?.accusativeToDative || { mich: "mir", dich: "dir", ihn: "ihm" };
+  const nominativeToDative = grammarReference.pronouns?.nominativeToDative || { ich: "mir", du: "dir", er: "ihm" };
+  const pronounMap = { ...accusativeToDative, ...nominativeToDative };
+  const dativeLemmas = grammarReference.dativeVerbs || ["helfen", "antworten", "schreiben", "danken"];
+  const dativeForms = dativeLemmas.flatMap((lemma) => Object.values(a2VerbForms[lemma] || {}));
+  dativeForms.push("danke", "dankst", "dankt", "danken");
+  const pattern = new RegExp(`\\b(${[...new Set(dativeForms)].map(escapeRegexText).join("|")})\\s+(mich|dich|ihn|ich|du|er)\\b`, "giu");
+  for (const match of value.matchAll(pattern)) {
+    const key = match[2].toLocaleLowerCase("de-DE");
+    const expected = pronounMap[key];
+    if (!expected) continue;
+    const offset = match.index + match[0].toLocaleLowerCase("de-DE").lastIndexOf(key);
+    issues.push(makeLocalIssue({
+      ruleId: "dative-verb-pronoun",
+      type: "Personalpronomen / Dativ",
+      explanation: `‘${match[1]}’ burada Dativ zamiri ister; doğru biçim ‘${expected}’ olur.`,
+      original: match[2],
+      suggestion: expected,
+      offset,
+      priority: issuePriorityOrder.case
+    }));
+  }
+
+  const modalHelpPattern = /\b(kannst du|können Sie|kann er)\s+(mich|dich|ihn|ich|du|er)\s+helfen\b/giu;
+  for (const match of value.matchAll(modalHelpPattern)) {
+    const key = match[2].toLocaleLowerCase("de-DE");
+    const expected = pronounMap[key];
+    if (!expected) continue;
+    issues.push(makeLocalIssue({
+      ruleId: "modal-help-dative-pronoun",
+      type: "Personalpronomen / Dativ",
+      explanation: "‘helfen’ fiili Dativ ister; kişi zamirini Dativ biçiminde kullan.",
+      original: match[2],
+      suggestion: expected,
+      offset: match.index + match[0].indexOf(match[2]),
+      priority: issuePriorityOrder.case
+    }));
+  }
+  return issues;
+}
+
+function runReflexiveChecks(text) {
+  const value = String(text);
+  const issues = [];
+  const rules = [
+    { id: "reflexive-anmelden-modal", pattern: /\bich möchte für den kurs anmelden\b/giu, replacement: "ich möchte mich für den Kurs anmelden", explanation: "‘sich anmelden’ dönüşlüdür; ‘ich’ ile ‘mich’ kullanılır." },
+    { id: "reflexive-anmelden-ich", pattern: /\bich melde für den kurs an\b/giu, replacement: "ich melde mich für den Kurs an", explanation: "‘sich anmelden’ dönüşlüdür: ich melde mich an." },
+    { id: "reflexive-treffen-wir", pattern: /\bwir treffen am bahnhof\b/giu, replacement: "wir treffen uns am Bahnhof", explanation: "Karşılıklı buluşmayı anlatırken ‘wir treffen uns’ kullanılır." },
+    { id: "reflexive-interest", pattern: /\bich interessiere für\b/giu, replacement: "ich interessiere mich für", explanation: "Doğru kalıp ‘sich für etwas interessieren’ şeklindedir." },
+    { id: "reflexive-freuen-wir", pattern: /\bwir freuen auf\b/giu, replacement: "wir freuen uns auf", explanation: "‘sich freuen’ dönüşlüdür; ‘wir’ ile ‘uns’ kullanılır." },
+    { id: "reflexive-entschuldigen", pattern: /\bich entschuldige\b(?!\s+mich)/giu, replacement: "ich entschuldige mich", explanation: "Özür dilemek için fiil dönüşlü kullanılır: ich entschuldige mich." }
+  ];
+  rules.forEach((rule) => {
+    for (const match of value.matchAll(rule.pattern)) {
+      const rawSuggestion = match[0].replace(new RegExp(rule.pattern.source, rule.pattern.flags.replace("g", "")), rule.replacement);
+      issues.push(makeLocalIssue({
+        ruleId: rule.id,
+        type: "Reflexivverb",
+        explanation: rule.explanation,
+        original: match[0],
+        suggestion: preserveInitialCase(match[0], rawSuggestion),
+        offset: match.index,
+        priority: issuePriorityOrder.case
+      }));
+    }
+  });
+  return issues;
+}
+
+function runRegisterConsistencyChecks(text) {
+  const value = String(text);
+  const greeting = detectGreeting(value);
+  if (!greeting.found) return [];
+  const rules = grammarReference.registerRules?.[greeting.type] || [];
+  const issues = [];
+  rules.forEach((rule, index) => {
+    const pattern = new RegExp(`\\b${escapeRegexText(rule.from)}\\b`, "gu");
+    for (const match of value.matchAll(pattern)) {
+      issues.push(makeLocalIssue({
+        ruleId: `register-${greeting.type}-${index}`,
+        type: "Mektuba uygunluk / Register",
+        explanation: greeting.type === "formal"
+          ? "Resmî hitapla başlayan mektupta ‘Sie/Ihr’ biçimini ve uygun fiil çekimini kullan."
+          : "Samimi hitapla başlayan mektupta ‘du/dein’ biçimini ve uygun fiil çekimini kullan.",
+        original: match[0],
+        suggestion: rule.to,
+        offset: match.index,
+        confidence: "high",
+        safeToApply: true,
+        priority: issuePriorityOrder.case + 5
+      }));
+    }
+  });
+  return issues;
+}
+
+function runPerfektChecks(text) {
+  const value = String(text);
+  const issues = [];
+  const participleEntries = Object.values(grammarReference.participles || {});
+  const participleByForm = new Map(participleEntries.map((entry) => [entry.form.toLocaleLowerCase("de-DE"), entry]));
+  const participleAlternation = [...participleByForm.keys()].sort((a, b) => b.length - a.length).map(escapeRegexText).join("|");
+  if (!participleAlternation) return issues;
+  const pattern = new RegExp(`\\b(ich|du|er|es|wir|ihr|Sie)\\s+(bin|bist|ist|sind|seid|habe|hast|hat|haben|habt)\\s+(${participleAlternation})\\b`, "giu");
+  for (const match of value.matchAll(pattern)) {
+    const participle = match[3].toLocaleLowerCase("de-DE");
+    const actualAux = match[2].toLocaleLowerCase("de-DE");
+    const actualFamily = Object.values(a2VerbForms.sein).includes(actualAux) ? "sein" : "haben";
+    const reference = participleByForm.get(participle);
+    const expectedFamily = reference?.auxiliary || null;
+    if (!expectedFamily || actualFamily === expectedFamily) continue;
+    const person = personForSubject(match[1]);
+    if (!person) continue;
+    const expectedAux = a2VerbForms[expectedFamily][person];
+    const confidence = reference?.confidence || "high";
+    const isLowConfidence = confidence === "low";
+    issues.push(makeLocalIssue({
+      ruleId: `perfekt-${expectedFamily}-${participle}`,
+      type: "Perfekt / haben-sein",
+      explanation: isLowConfidence
+        ? (reference.note || "Bu yardımcı fiil bağlama göre değişebilir; cümleyi öğretmeninle kontrol et.")
+        : `‘${participle}’ ile Perfekt kurulurken burada ‘${expectedFamily}’ kullanılır.`,
+      original: match[2],
+      suggestion: expectedAux,
+      offset: match.index + match[0].toLocaleLowerCase("de-DE").indexOf(actualAux),
+      severity: isLowConfidence ? "INFO" : "ERROR",
+      confidence,
+      safeToApply: !isLowConfidence,
+      priority: issuePriorityOrder.perfekt
+    }));
+  }
+  return issues;
+}
+
+function runQuestionAndPunctuationChecks(text) {
+  const issues = [];
+  getSentenceSpans(text).forEach((span) => {
+    const trimmed = span.text.trim();
+    const core = trimmed.replace(/[.!?]+$/u, "");
+    const looksLikeQuestion = /^(?:wann|warum|wo|wohin|woher|wie|wie viel|was|wer|welche?r?|kann|kannst|können|möchte|möchten|hast|haben|ist|sind|darf|dürfen)\b/iu.test(core);
+    if (!looksLikeQuestion) return;
+    if (trimmed.endsWith(".")) {
+      issues.push(makeLocalIssue({
+        ruleId: "question-mark",
+        type: "Fragesatz / Satzzeichen",
+        explanation: "Doğrudan soru cümlesi soru işaretiyle biter.",
+        original: ".",
+        suggestion: "?",
+        offset: span.start + trimmed.length - 1,
+        priority: issuePriorityOrder.punctuation
+      }));
+    } else if (!/[?]$/u.test(trimmed)) {
+      const lastWord = [...core.matchAll(/[\p{L}\p{N}]+/gu)].at(-1);
+      if (!lastWord) return;
+      issues.push(makeLocalIssue({
+        ruleId: "missing-question-mark",
+        type: "Fragesatz / Satzzeichen",
+        explanation: "Doğrudan soru cümlesini soru işaretiyle bitir.",
+        original: lastWord[0],
+        suggestion: `${lastWord[0]}?`,
+        offset: span.start + lastWord.index,
+        priority: issuePriorityOrder.punctuation
+      }));
+    }
+  });
+  return issues;
+}
+
+function runA2PatternChecks(text) {
+  const value = String(text);
+  const issues = [];
+  const patterns = [
+    { id: "question-wo-uns", pattern: /\bwo wir treffen uns\b/giu, replacement: "wo treffen wir uns", type: "Fragesatz / Verbposition", explanation: "Soru kelimesinden sonra fiil, sonra özne gelir; ‘uns’ fiilden sonra kalır.", priority: issuePriorityOrder.verbposition },
+    { id: "question-was-modal", pattern: /\bwas ich soll mitbringen\b/giu, replacement: "was soll ich mitbringen", type: "Fragesatz / Verbposition", explanation: "Soru kelimesinden sonra çekimli modal fiil gelir.", priority: issuePriorityOrder.verbposition },
+    { id: "imperative-komm", pattern: /\bbitte kommst\b/giu, replacement: "bitte komm", type: "Imperativ", explanation: "‘du’ için temel emir biçimi ‘komm’ olur.", priority: issuePriorityOrder.conjugation },
+    { id: "imperative-schreib", pattern: /\bschreibst mir bitte\b/giu, replacement: "schreib mir bitte", type: "Imperativ", explanation: "‘du’ için emir biçimi ‘schreib’ olur.", priority: issuePriorityOrder.conjugation },
+    { id: "adjective-neuter", pattern: /\bein schöne(?:s)? (geschenk|hotel|wochenende|auto|fahrrad)\b/giu, replacement: "ein schönes $1", type: "Adjektiv / Artikel", explanation: "‘ein’ ile kullanılan nötr isimde sıfat ‘-es’ eki alır.", priority: issuePriorityOrder.case },
+    { id: "adjective-feminine", pattern: /\beine schön (party|einladung|woche|zeit)\b/giu, replacement: "eine schöne $1", type: "Adjektiv / Artikel", explanation: "Dişil isimden önce sıfat burada ‘-e’ eki alır.", priority: issuePriorityOrder.case },
+    { id: "adjective-acc-masc", pattern: /\beinen schöne (kurs|termin|tag)\b/giu, replacement: "einen schönen $1", type: "Adjektiv / Akkusativ", explanation: "Eril Akkusativ yapıda sıfat burada ‘-en’ eki alır.", priority: issuePriorityOrder.case },
+    { id: "denn-main-clause-order", pattern: /\bdenn (ich|du|er|sie|es|wir|ihr|Sie) (arbeiten|kommen|gehen|fahren) (muss|musst|müssen|müsst|kann|kannst|können|könnt)\b/giu, replacement: "denn $1 $3 $2", type: "Satzstellung / denn", explanation: "‘denn’ sonrasında ana cümle sırası korunur; çekimli fiil ikinci konumda olur.", priority: issuePriorityOrder.verbposition },
+    { id: "perfekt-object-order", pattern: /\b(ich|du|er|sie|es|wir|ihr|Sie) (habe|hast|hat|haben|habt) (gelernt|gekauft|gemacht|geschrieben) (deutsch|kaffee|hausaufgaben|eine e-mail)\b/giu, replacement: "$1 $2 $4 $3", type: "Perfekt / Verbposition", explanation: "Perfekt cümlesinde Partizip II genellikle cümlenin sonunda durur.", priority: issuePriorityOrder.verbposition },
+    { id: "perfekt-lernen-infinitive", pattern: /\b(ich|du|er|sie|es|wir|ihr|Sie) (habe|hast|hat|haben|habt) (gestern |heute )?lernen\b/giu, replacement: "$1 $2 $3gelernt", type: "Perfekt / Partizip II", explanation: "Perfekt yapısında mastar değil Partizip II kullanılır: gelernt.", priority: issuePriorityOrder.perfekt },
+    { id: "perfekt-time-order-sein", pattern: /\b(ich|du|er|sie|es|wir|ihr|Sie) (bin|bist|ist|sind|seid) (aufgestanden|angekommen) (früh|spät|heute|gestern)\b/giu, replacement: "$1 $2 $4 $3", type: "Perfekt / Verbposition", explanation: "Perfekt cümlesinde Partizip II cümlenin sonunda durur.", priority: issuePriorityOrder.verbposition },
+    { id: "modal-separable-prefix", pattern: /\bich kann mitbringe (meine schwester|meinen bruder|einen freund|eine freundin)\b/giu, replacement: "ich kann $1 mitbringen", type: "Modalverb / Trennbares Verb", explanation: "Modal fiille ayrılabilen ana fiil birleşik mastar olarak sonda kalır.", priority: issuePriorityOrder.verbposition },
+    { id: "modal-separable-aufstehen", pattern: /\b(ich muss|du musst|er muss|wir müssen|ihr müsst|Sie müssen) (stehe|stehst|steht|stehen) auf\b/giu, replacement: "$1 aufstehen", type: "Modalverb / Trennbares Verb", explanation: "Modal fiilden sonra ayrılabilen fiil birleşik mastar hâlinde kullanılır: aufstehen.", priority: issuePriorityOrder.verbposition },
+    { id: "two-way-location-table", pattern: /\b(ist|liegt|steht) auf der tisch\b/giu, replacement: "$1 auf dem Tisch", type: "Wechselpräposition / Dativ", explanation: "Sabit yerde ‘Wo?’ sorusuyla Dativ kullanılır: auf dem Tisch.", priority: issuePriorityOrder.case },
+    { id: "double-finite", pattern: /\b(habe|bin|kann|muss|möchte|will)\s+\1\b/giu, replacement: "$1", type: "Fazla fiil / Çift fiil", explanation: "Aynı çekimli fiil yanlışlıkla iki kez yazılmış.", priority: issuePriorityOrder.meaning },
+    { id: "word-choice-termin", pattern: /\beinen termin machen\b/giu, replacement: "einen Termin vereinbaren", type: "Kelime seçimi", explanation: "‘Termin vereinbaren’ daha doğal ve yerleşik bir kullanımdır.", severity: "IMPROVEMENT", confidence: "medium", safeToApply: false, priority: issuePriorityOrder.style },
+    { id: "umlaut-mochte", pattern: /\b(ich|er|sie) mochte (kommen|gehen|fragen|wissen|buchen|absagen)\b/giu, replacement: "$1 möchte $2", type: "Umlaut / Modalverb", explanation: "İstek bildirirken ‘möchte’ sözcüğünde ‘ö’ kullanılır.", severity: "IMPROVEMENT", confidence: "medium", safeToApply: false, priority: issuePriorityOrder.spelling },
+    { id: "umlaut-wurde", pattern: /\b(ich|er|sie) wurde (kommen|gehen|fragen|helfen|bleiben)\b/giu, replacement: "$1 würde $2", type: "Umlaut / Wortwahl", explanation: "Koşul veya nazik istek anlamında çoğunlukla ‘würde’ gerekir; ‘wurde’ başka bir geçmiş zaman biçimidir.", severity: "IMPROVEMENT", confidence: "low", safeToApply: false, priority: issuePriorityOrder.style }
+  ];
+  patterns.forEach((rule) => {
+    for (const match of value.matchAll(rule.pattern)) {
+      const suggestion = preserveInitialCase(match[0], match[0].replace(new RegExp(rule.pattern.source, rule.pattern.flags.replace("g", "")), rule.replacement));
+      issues.push(makeLocalIssue({
+        ruleId: rule.id,
+        type: rule.type,
+        explanation: rule.explanation,
+        original: match[0],
+        suggestion,
+        offset: match.index,
+        severity: rule.severity,
+        confidence: rule.confidence,
+        safeToApply: rule.safeToApply,
+        priority: rule.priority
+      }));
+    }
+  });
+
+  getSentenceSpans(value).forEach((span) => {
+    const core = span.text.replace(/[.!?]+$/u, "").trim();
+    if (/^(Ich|Wir)\s+(?:heute|morgen)\s+(?:zum Arzt|zur Schule|im Kurs|in Berlin)$/u.test(core)) {
+      issues.push(makeLocalIssue({
+        ruleId: "possible-missing-verb",
+        type: "Eksik fiil",
+        explanation: "Bu cümlede çekimli fiil eksik görünüyor; anlatmak istediğine göre ‘gehe/fahre/bin’ ekle.",
+        original: core,
+        suggestion: "Çekimli bir fiil ekle",
+        offset: span.start,
+        severity: "INFO",
+        confidence: "low",
+        safeToApply: false,
+        priority: issuePriorityOrder.meaning
+      }));
+    }
+  });
+  return issues;
+}
+
 function runStructuralLanguageChecks(text, task) {
   const value = String(text);
   const issues = [];
@@ -1121,6 +2365,7 @@ function runStructuralLanguageChecks(text, task) {
   for (const match of value.matchAll(/(^|[.!?]\s+|\n+)([a-zäöüß])(?=\p{L})/gmu)) {
     const offset = match.index + match[1].length;
     if (offset === salutationContinuationOffset) continue;
+    if (offset === 0 && /^(?:weil|dass|wenn)\b/iu.test(value.slice(offset))) continue;
     const original = match[2];
     issues.push(makeLocalIssue({
       ruleId: "sentence-capitalization",
@@ -1171,9 +2416,11 @@ function runStructuralLanguageChecks(text, task) {
 
   const lines = [...value.matchAll(/[^\r\n]+/g)];
   const firstLine = lines[0];
+  let firstLineIsGreeting = false;
   if (firstLine) {
     const clean = firstLine[0].trim();
     const isGreeting = /^(?:liebe\s+\p{L}+|lieber\s+\p{L}+|hallo(?:\s+\p{L}+)?|sehr geehrte|guten tag)/iu.test(clean);
+    firstLineIsGreeting = isGreeting;
     if (isGreeting && !clean.endsWith(",")) {
       const leading = firstLine[0].indexOf(clean);
       issues.push(makeLocalIssue({
@@ -1187,7 +2434,7 @@ function runStructuralLanguageChecks(text, task) {
     }
   }
 
-  const closingLineIndex = lines.findIndex((line) => /^(?:mit freundlichen gr(?:ü|u|ue)ßen|(?:liebe|viele|herzliche) gr(?:ü|u|ue)ße|bis bald)\s*,?$/iu.test(line[0].trim()));
+  const closingLineIndex = lines.findIndex((line) => /^(?:mit freundliche(?:n)? gr(?:ü|u|ue)ße(?:n)?|(?:liebe|viele|herzliche) gr(?:ü|u|ue)ße|bis bald)\s*,?$/iu.test(line[0].trim()));
   if (closingLineIndex >= 0) {
     const line = lines[closingLineIndex];
     const clean = line[0].trim();
@@ -1203,8 +2450,9 @@ function runStructuralLanguageChecks(text, task) {
     }
   }
 
-  const bodyEnd = closingLineIndex >= 0 ? closingLineIndex : Math.max(1, lines.length - 1);
-  lines.slice(1, bodyEnd).forEach((line) => {
+  const bodyStart = firstLineIsGreeting ? 1 : 0;
+  const bodyEnd = closingLineIndex >= 0 ? closingLineIndex : task ? Math.max(bodyStart, lines.length - 1) : lines.length;
+  lines.slice(bodyStart, bodyEnd).forEach((line) => {
     const clean = line[0].trim();
     if (!clean || /[.!?]$/.test(clean)) return;
     const leading = line[0].indexOf(clean);
@@ -1221,7 +2469,7 @@ function runStructuralLanguageChecks(text, task) {
     }));
   });
 
-  if (getExpectedFormality(task) === "formal") {
+  if (task && getExpectedFormality(task) === "formal") {
     for (const match of value.matchAll(/\b(können|haben|möchten|sind|kommen|schicken|antworten)\s+(sie)\b/giu)) {
       if (match[2] !== match[2].toLocaleLowerCase("de-DE")) continue;
       const pronounOffset = match.index + match[0].toLocaleLowerCase("de-DE").lastIndexOf("sie");
@@ -1268,7 +2516,7 @@ function runStructuralLanguageChecks(text, task) {
         source: "suitability"
       }));
     }
-  } else {
+  } else if (task) {
     for (const match of value.matchAll(/\b(können|haben|möchten|sind|kommen|schicken|antworten)\s+(sie)\b/giu)) {
       if (match[2] !== "Sie") continue;
       const pronounOffset = match.index + match[0].lastIndexOf(match[2]);
@@ -1286,7 +2534,7 @@ function runStructuralLanguageChecks(text, task) {
 
   const greeting = detectGreeting(value);
   const expected = getExpectedFormality(task);
-  if (greeting.found && greeting.type !== expected && firstLine) {
+  if (task && greeting.found && greeting.type !== expected && firstLine) {
     const clean = firstLine[0].trim();
     const suggestion = expected === "formal" ? "Sehr geehrte Damen und Herren," : "Liebe/Lieber …,";
     issues.push(makeLocalIssue({
@@ -1311,85 +2559,50 @@ function runLocalLanguageChecks(text, task = tasks[state.activeTask]) {
   localLanguageRules.forEach((rule) => {
     const regex = new RegExp(rule.pattern.source, rule.pattern.flags);
     for (const match of value.matchAll(regex)) {
-      const suggestion = match[0].replace(new RegExp(rule.pattern.source, rule.pattern.flags.replace("g", "")), rule.replacement);
+      const rawSuggestion = match[0].replace(new RegExp(rule.pattern.source, rule.pattern.flags.replace("g", "")), rule.replacement);
+      const suggestion = preserveInitialCase(match[0], rawSuggestion);
       issues.push(makeLocalIssue({
         ruleId: rule.id,
         type: rule.type,
         explanation: rule.explanation,
         original: match[0],
         suggestion,
-        offset: match.index
+        offset: match.index,
+        severity: rule.severity,
+        confidence: rule.confidence,
+        safeToApply: rule.safeToApply,
+        priority: rule.priority
       }));
     }
   });
+  issues.push(...runSpellingChecks(value));
+  issues.push(...runConjugationChecks(value));
+  issues.push(...runModalChecks(value));
+  issues.push(...runSeparableVerbChecks(value));
+  issues.push(...runSentenceOrderChecks(value));
+  issues.push(...runSubordinateClauseChecks(value));
+  issues.push(...runCaseAndPrepositionChecks(value));
+  issues.push(...runPronounCaseChecks(value));
+  issues.push(...runReflexiveChecks(value));
+  issues.push(...runRegisterConsistencyChecks(value));
+  issues.push(...runPerfektChecks(value));
+  issues.push(...runQuestionAndPunctuationChecks(value));
+  issues.push(...runA2PatternChecks(value));
   issues.push(...runStructuralLanguageChecks(value, task));
   return issues.sort((a, b) => a.offset - b.offset || b.length - a.length);
 }
 
-async function checkWithLanguageTool(text) {
-  const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), 10000);
-  try {
-    const body = new URLSearchParams({ text, language: "de-DE", enabledOnly: "false" });
-    const response = await fetch(LANGUAGE_TOOL_ENDPOINT, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body,
-      signal: controller.signal
-    });
-    if (!response.ok) throw new Error(`LanguageTool ${response.status}`);
-    const data = await response.json();
-    return {
-      available: true,
-      matches: Array.isArray(data.matches) ? data.matches.map(mapLanguageToolMatch) : []
-    };
-  } catch (error) {
-    return { available: false, matches: [], error: error instanceof Error ? error.message : "Network error" };
-  } finally {
-    window.clearTimeout(timeout);
-  }
-}
-
-function mapLanguageToolMatch(match) {
-  const replacement = match.replacements && match.replacements[0] ? match.replacements[0].value : "";
-  const original = match.context && typeof match.context.text === "string"
-    ? match.context.text.slice(match.context.offset, match.context.offset + match.context.length)
-    : "";
-  const category = match.rule && match.rule.category ? match.rule.category.name : "Sprache";
-  return {
-    source: "languagetool",
-    ruleId: match.rule ? match.rule.id : "LT",
-    type: category,
-    message: match.message || "Dil kullanımını kontrol et.",
-    explanation: languageToolExplanation(category, match.message),
-    original,
-    suggestion: replacement,
-    offset: match.offset,
-    length: match.length,
-    replacement
+function applySafeCorrections(text, issues) {
+  const explicitRuleIds = new Set(localLanguageRules.map((rule) => rule.id));
+  const correctionPriority = (issue) => {
+    if (explicitRuleIds.has(issue.ruleId)) return 4;
+    if (String(issue.ruleId).startsWith("spelling-")) return 3;
+    if (String(issue.type).toLocaleLowerCase("tr-TR").includes("noktalama")) return 1;
+    return 2;
   };
-}
-
-function languageToolExplanation(category, message) {
-  const normalized = normalizeText(category);
-  if (normalized.includes("rechtschreib")) return "Bu kelimenin yazımını kontrol et. Öneri, standart Almanca yazıma uygundur.";
-  if (normalized.includes("grammatik")) return "Bu yapıda dilbilgisi veya çekim uyumu olabilir. Önerilen kısa biçimi karşılaştır.";
-  if (normalized.includes("zeichensetzung")) return "Noktalama işaretini kontrol et; kısa cümleleri nokta ile ayırmak metni daha anlaşılır yapar.";
-  if (normalized.includes("gross")) return "Almancada isimler büyük harfle başlar. Büyük-küçük harf kullanımını kontrol et.";
-  return message ? `LanguageTool uyarısı: ${message}` : "Bu ifadeyi önerilen A2 biçimiyle karşılaştır.";
-}
-
-function applyLanguageToolCorrections(text, issues) {
-  const localRanges = issues
-    .filter((issue) => issue.source === "local" && Number.isInteger(issue.offset))
-    .map((issue) => ({ start: issue.offset, end: issue.offset + issue.length }));
   const correctionCandidates = issues
-    .filter((issue) => issue.source !== "suitability" && issue.replacement && Number.isInteger(issue.offset))
-    .filter((issue) => issue.source === "local" || !localRanges.some((range) => {
-      const issueEnd = issue.offset + issue.length;
-      return issue.offset < range.end && issueEnd > range.start;
-    }))
-    .sort((a, b) => a.offset - b.offset || b.length - a.length);
+    .filter((issue) => issue.source !== "suitability" && issue.safeToApply !== false && issue.confidence === "high" && issue.severity !== "INFO" && issue.replacement && Number.isInteger(issue.offset))
+    .sort((a, b) => correctionPriority(b) - correctionPriority(a) || a.offset - b.offset || b.length - a.length);
   const selectedCorrections = [];
   correctionCandidates.forEach((issue) => {
     const issueEnd = issue.offset + issue.length;
@@ -1412,7 +2625,7 @@ function applyLanguageToolCorrections(text, issues) {
 }
 
 function buildCorrectedText(text, issues) {
-  return applyLanguageToolCorrections(text, issues);
+  return applySafeCorrections(text, issues);
 }
 
 function evaluateLetterSuitability(task, text, score, issues) {
@@ -1476,7 +2689,9 @@ function renderInlineReview(text, issues) {
     dom.inlineReviewCount.className = "review-count success";
     dom.reviewedLetter.append(document.createTextNode(text));
     dom.reviewedLetter.classList.add("is-clean");
-    dom.inlineExplanations.append(element("p", "review-clean-note", "Belirgin bir A2 dilbilgisi, yazım veya mektuba uygunluk sorunu bulunmadı."));
+    dom.inlineExplanations.append(element("p", "review-clean-note", isFreeWriting
+      ? "Belirgin bir A2 dilbilgisi veya yazım sorunu bulunmadı."
+      : "Belirgin bir A2 dilbilgisi, yazım veya mektuba uygunluk sorunu bulunmadı."));
     dom.inlineReview.hidden = false;
     return;
   }
@@ -1501,18 +2716,18 @@ function renderInlineReview(text, issues) {
   clusters.forEach((cluster) => {
     if (cluster.start > cursor) dom.reviewedLetter.append(document.createTextNode(text.slice(cursor, cluster.start)));
     const marked = element("span", "review-error-fragment", text.slice(cluster.start, cluster.end));
-    marked.title = cluster.issues.map((issue) => `${issue.reviewNumber}. ${friendlyIssueType(issue.type)}`).join(" · ");
+    marked.title = cluster.issues.map((issue) => `${issue.reviewNumber}. ${issueSeverityLabel(issue.severity)} · ${friendlyIssueType(issue.type)}`).join(" · ");
     const number = element("sup", "review-error-number", cluster.issues.map((issue) => issue.reviewNumber).join(","));
     dom.reviewedLetter.append(marked, number);
     cursor = cluster.end;
   });
   if (cursor < text.length) dom.reviewedLetter.append(document.createTextNode(text.slice(cursor)));
 
-  rangedIssues.forEach((issue) => {
+  const makeExplanationCard = (issue) => {
     const card = element("article", "inline-explanation");
     card.append(element("span", "explanation-number", issue.reviewNumber));
     const detail = element("div");
-    detail.append(element("strong", "", friendlyIssueType(issue.type)));
+    detail.append(element("strong", "", `${issueSeverityLabel(issue.severity)} · ${friendlyIssueType(issue.type)}`));
     const change = element("p", "explanation-change");
     change.append(
       element("span", "wrong-fragment", issue.original || "—"),
@@ -1521,15 +2736,62 @@ function renderInlineReview(text, issues) {
     );
     detail.append(change, element("p", "explanation-why", issue.explanation || issue.message));
     card.append(detail);
-    dom.inlineExplanations.append(card);
+    return card;
+  };
+
+  rangedIssues.slice(0, 5).forEach((issue) => {
+    dom.inlineExplanations.append(makeExplanationCard(issue));
   });
+  if (rangedIssues.length > 5) {
+    const extra = element("details", "extra-explanations");
+    extra.append(element("summary", "", `Diğer ${rangedIssues.length - 5} açıklamayı göster`));
+    const extraList = element("div", "extra-explanation-list");
+    rangedIssues.slice(5).forEach((issue) => extraList.append(makeExplanationCard(issue)));
+    extra.append(extraList);
+    dom.inlineExplanations.append(extra);
+  }
   dom.inlineReview.hidden = false;
 }
 
-async function handleLetterCheck() {
+function evaluateFreeWriting(text, issues) {
+  const languageIssues = issues.filter((issue) => issue.source !== "suitability");
+  const stats = getLanguageIssueStats(languageIssues);
+  const greeting = detectGreeting(text);
+  const closing = detectClosing(text);
+  const appearsToBeLetter = greeting.found || closing.found;
+  return {
+    words: countWords(text),
+    languageIssueCount: languageIssues.length,
+    languageStats: stats,
+    greeting,
+    closing,
+    appearsToBeLetter,
+    status: stats.errors > 0 ? "error" : stats.improvements > 0 || stats.info > 0 ? "warning" : "good"
+  };
+}
+
+function getLanguageIssueStats(issues) {
+  return issues.reduce((stats, issue) => {
+    if (issue.severity === "IMPROVEMENT") stats.improvements += 1;
+    else if (issue.severity === "INFO") stats.info += 1;
+    else stats.errors += 1;
+    return stats;
+  }, { errors: 0, improvements: 0, info: 0 });
+}
+
+function formatLanguageIssueStats(issues) {
+  const stats = getLanguageIssueStats(issues);
+  const parts = [];
+  if (stats.errors) parts.push(`${stats.errors} hata`);
+  if (stats.improvements) parts.push(`${stats.improvements} iyileştirme`);
+  if (stats.info) parts.push(`${stats.info} bilgi`);
+  return parts.length ? parts.join(" · ") : "Belirgin hata bulunmadı.";
+}
+
+function handleLetterCheck() {
   const text = dom.studentText.value.trim();
   if (!text) {
-    showNotification("Bitte schreibe zuerst eine E-Mail.", "warning");
+    showNotification(isFreeWriting ? "Önce Almanca bir metin yazın." : "Önce Almanca bir mektup yazın.", "warning");
     dom.studentText.focus();
     return;
   }
@@ -1538,26 +2800,25 @@ async function handleLetterCheck() {
   const oldText = dom.checkLetter.textContent;
   dom.checkLetter.textContent = "Kontrol ediliyor…";
 
-  const task = tasks[state.activeTask];
-  const score = calculateTelcScore(task, text);
+  const task = isFreeWriting ? null : tasks[state.activeTask];
+  const score = task ? calculateTelcScore(task, text) : null;
   const localIssues = runLocalLanguageChecks(text, task);
-  const languageTool = await checkWithLanguageTool(text);
-  const allIssues = deduplicateIssues([...localIssues, ...languageTool.matches]);
+  const allIssues = deduplicateIssues(localIssues, text);
   const correctedText = buildCorrectedText(text, allIssues);
-  const suitability = evaluateLetterSuitability(task, text, score, allIssues);
+  const suitability = task ? evaluateLetterSuitability(task, text, score, allIssues) : null;
+  const freeEvaluation = task ? null : evaluateFreeWriting(text, allIssues);
 
-  lastEvaluation = { score, localIssues, languageTool, allIssues, correctedText, suitability, text };
+  lastEvaluation = { free: !task, score, localIssues, allIssues, correctedText, suitability, freeEvaluation, text };
   state.attempts += 1;
-  state.lastScore = score.total;
-  state.bestScore = Math.max(Number(state.bestScore) || 0, score.total);
-  state.completed[String(tasks[state.activeTask].id)] = {
-    score: score.total,
-    date: new Date().toISOString()
-  };
+  if (task) {
+    state.lastScore = score.total;
+    state.bestScore = Math.max(Number(state.bestScore) || 0, score.total);
+    state.completed[String(task.id)] = { score: score.total, date: new Date().toISOString() };
+  }
   saveProgress();
   renderInlineReview(text, allIssues);
   renderResults(lastEvaluation);
-  updateTaskPointStates(score.analyses);
+  if (task) updateTaskPointStates(score.analyses);
 
   dom.checkLetter.disabled = false;
   dom.checkLetter.textContent = oldText;
@@ -1565,14 +2826,42 @@ async function handleLetterCheck() {
   dom.inlineReview.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-function deduplicateIssues(issues) {
+function deduplicateIssues(issues, text = "") {
   const seen = new Set();
-  return issues.filter((issue) => {
+  const severityRank = { ERROR: 3, IMPROVEMENT: 2, INFO: 1 };
+  const confidenceRank = { high: 3, medium: 2, low: 1 };
+  const ranked = issues.slice().sort((a, b) =>
+    (b.priority || 0) - (a.priority || 0) ||
+    (severityRank[b.severity] || 0) - (severityRank[a.severity] || 0) ||
+    (confidenceRank[b.confidence] || 0) - (confidenceRank[a.confidence] || 0) ||
+    (b.length || 0) - (a.length || 0) ||
+    a.offset - b.offset
+  );
+  const selected = [];
+  const sentenceCounts = new Map();
+  const sentenceSpans = getSentenceSpans(text);
+
+  ranked.forEach((issue) => {
     const key = `${issue.offset}|${normalizeText(issue.original)}|${normalizeText(issue.suggestion)}`;
-    if (seen.has(key)) return false;
+    if (seen.has(key)) return;
     seen.add(key);
-    return true;
+    const start = Number.isInteger(issue.offset) ? issue.offset : -1;
+    const end = start + (issue.length || 0);
+    const overlaps = start >= 0 && selected.some((other) => {
+      if (!Number.isInteger(other.offset)) return false;
+      const otherEnd = other.offset + (other.length || 0);
+      return start < otherEnd && end > other.offset;
+    });
+    if (overlaps) return;
+
+    const sentenceIndex = sentenceSpans.findIndex((span) => start >= span.start && start < span.end);
+    const densityKey = sentenceIndex >= 0 ? sentenceIndex : `offset-${start}`;
+    const density = sentenceCounts.get(densityKey) || 0;
+    if (density >= 4 && issue.source !== "suitability") return;
+    sentenceCounts.set(densityKey, density + 1);
+    selected.push(issue);
   });
+  return selected.sort((a, b) => a.offset - b.offset || (b.priority || 0) - (a.priority || 0));
 }
 
 function updateTaskPointStates(analyses) {
@@ -1615,97 +2904,91 @@ function renderSuitabilityOverview(suitability) {
   return section;
 }
 
+function compactCheckRow(label, status, detail) {
+  const row = element("div", `compact-check-row ${status}`);
+  row.append(
+    element("span", "compact-check-icon", status === "good" ? "✓" : status === "error" ? "×" : status === "warning" ? "!" : "i"),
+    element("strong", "", label),
+    element("span", "compact-check-detail", detail)
+  );
+  return row;
+}
+
 function renderResults(evaluation) {
-  const { score, languageTool, allIssues, correctedText, suitability, text } = evaluation;
+  const { free, score, allIssues, correctedText, suitability, freeEvaluation, text } = evaluation;
   const languageIssues = allIssues.filter((issue) => issue.source !== "suitability");
   dom.resultsContent.replaceChildren();
 
-  const summary = element("div", "score-summary");
-  const ring = element("div", "score-ring");
-  ring.style.setProperty("--score-angle", `${Math.min(360, score.total * 36)}deg`);
-  ring.append(element("strong", "", formatScore(score.total)), element("span", "", "/ 10 görev puanı"));
-  const copy = element("div", "score-copy");
-  const feedback = scoreFeedback(score.total, suitability);
-  copy.append(
-    element("h3", "", feedback.title),
-    element("p", "", feedback.text),
-    element("span", "evaluated-note", `Puanlanan maddeler: ${score.evaluatedNumbers.join(", ")}`),
-    element("small", "", "Bu otomatik çalışma değerlendirmesidir; resmî telc sınav sonucu değildir.")
-  );
-  summary.append(ring, copy);
-  dom.resultsContent.append(summary, renderSuitabilityOverview(suitability));
-
-  if (countWords(text) < 21) {
-    dom.resultsContent.append(element("p", "short-note", "Metnin çok kısa. Analiz yapıldı; daha açık bir sonuç için içerik maddelerine kısa cümleler ekle."));
-  }
-
-  const columns = element("div", "result-columns");
-  const telcBlock = element("section", "result-block");
-  telcBlock.append(element("h3", "", "Görev maddeleri"));
-  score.analyses.forEach((analysis, index) => {
-    const evaluated = score.evaluated.some((item) => item.originalIndex === index);
-    const row = element("div", "point-result");
-    const statusClass = analysis.score === 3 ? "full" : analysis.score === 1.5 ? "partial" : "missing";
-    const icon = element("span", `result-icon ${statusClass}`, analysis.score === 3 ? "✓" : analysis.score === 1.5 ? "!" : "×");
-    const detail = element("div");
-    detail.append(
-      element("strong", "", `Madde ${index + 1}${evaluated ? " · puana dahil" : ""}`),
-      element("p", "", analysis.score === 3 ? "Açık ve anlaşılır yazılmış." : analysis.score === 1.5 ? "Var, fakat biraz daha açıklanabilir." : "Bu madde henüz yazılmamış.")
+  const heading = element("div", "compact-result-heading");
+  if (free) {
+    heading.append(
+      element("div", "compact-score-badge", `${freeEvaluation.languageIssueCount}`),
+      element("div", "compact-result-copy")
     );
-    row.append(icon, detail, element("span", "point-score", `${formatScore(analysis.score)} / 3`));
-    telcBlock.append(row);
-  });
-
-  const communication = element("div", "point-result");
-  const communicationClass = score.communicationScore === 1 ? "full" : score.communicationScore === 0.5 ? "partial" : "missing";
-  const communicationDetail = element("div");
-  const greetingText = score.greeting.found ? "Başlangıç var ✓" : "Başlangıç eksik";
-  const closingText = score.closing.found ? "Kapanış var ✓" : "Kapanış eksik";
-  communicationDetail.append(
-    element("strong", "", "Mektup başlangıcı ve kapanışı"),
-    element("p", "", `${greetingText} · ${closingText}${score.styleMismatch ? " · Başlangıç ve kapanış aynı resmîlikte olsun" : ""}`)
-  );
-  communication.append(
-    element("span", `result-icon ${communicationClass}`, score.communicationScore === 1 ? "✓" : score.communicationScore === 0.5 ? "!" : "×"),
-    communicationDetail,
-    element("span", "point-score", `${formatScore(score.communicationScore)} / 1`)
-  );
-  telcBlock.append(communication);
-
-  const languageBlock = element("section", "result-block");
-  languageBlock.append(element("h3", "", "Dilbilgisi ve yazım hataları"));
-  if (languageIssues.length === 0) {
-    languageBlock.append(element("p", "", "Belirgin bir dil veya yazım hatası bulunmadı."));
+    heading.lastElementChild.append(
+      element("h3", "", freeEvaluation.languageIssueCount === 0 ? "Belirgin hata bulunmadı" : "Kontrol tamamlandı"),
+      element("p", "", freeEvaluation.languageIssueCount === 0 ? "Serbest Almanca yazınız kontrol edildi." : `${freeEvaluation.languageIssueCount} düzeltme önerisi bulundu.`)
+    );
   } else {
-    languageBlock.append(element("p", "", `${languageIssues.length} düzeltme önerisi bulundu.`));
-    languageIssues.slice(0, 16).forEach((issue) => languageBlock.append(renderLanguageIssue(issue)));
+    const feedback = scoreFeedback(score.total, suitability);
+    heading.append(
+      element("div", "compact-score-badge", `${formatScore(score.total)}/10`),
+      element("div", "compact-result-copy")
+    );
+    heading.lastElementChild.append(element("h3", "", feedback.title), element("p", "", feedback.text));
   }
-  if (!languageTool.available) {
-    languageBlock.append(element("p", "network-note", "Genişletilmiş çevrimdışı A2 kontrolü tamamlandı. İnternet bağlantısı olduğunda ayrıca çevrim içi ayrıntılı kontrol de kullanılır."));
+  dom.resultsContent.append(heading);
+
+  const checks = element("div", "compact-check-list");
+  if (free) {
+    checks.append(
+      compactCheckRow(
+        "Dilbilgisi ve yazım",
+        freeEvaluation.status,
+        formatLanguageIssueStats(languageIssues)
+      ),
+      compactCheckRow("Uzunluk", "info", `${freeEvaluation.words} kelime · Serbest yazıda kelime sınırı yok.`)
+    );
+    if (freeEvaluation.appearsToBeLetter) {
+      const completeLetter = freeEvaluation.greeting.found && freeEvaluation.closing.found;
+      checks.append(compactCheckRow("Mektup düzeni", completeLetter ? "good" : "warning", completeLetter ? "Hitap ve kapanış bulundu." : "Hitap veya kapanış eksik olabilir."));
+    } else {
+      checks.append(compactCheckRow("Yazı türü", "info", "Serbest metin olarak kontrol edildi; mektup düzeni aranmadı."));
+    }
   } else {
-    languageBlock.append(element("p", "network-note success", "Çevrim içi ayrıntılı Almanca kontrolü de tamamlandı."));
+    const completedPoints = score.analyses.filter((analysis) => analysis.score > 0).length;
+    const formatGood = score.greeting.found && score.closing.found && !score.styleMismatch && !allIssues.some((issue) => issue.source === "suitability");
+    const words = countWords(text);
+    checks.append(
+      compactCheckRow("Görev maddeleri", completedPoints >= 3 ? "good" : completedPoints === 2 ? "warning" : "error", `${completedPoints}/4 madde bulundu. En az 3 madde yazın.`),
+      compactCheckRow(
+        "Dilbilgisi ve yazım",
+        getLanguageIssueStats(languageIssues).errors > 0 ? "error" : languageIssues.length > 0 ? "warning" : "good",
+        formatLanguageIssueStats(languageIssues)
+      ),
+      compactCheckRow("Mektup düzeni", formatGood ? "good" : "warning", formatGood ? "Hitap ve kapanış uygun." : "Hitap, kapanış veya resmîlik biçimini kontrol edin."),
+      compactCheckRow("Uzunluk", words >= 30 && words <= 55 ? "good" : "warning", `${words} kelime · Hedef yaklaşık 40 kelime.`)
+    );
   }
+  dom.resultsContent.append(checks);
 
-  columns.append(telcBlock, languageBlock);
+  const advice = element("p", "compact-advice", free
+    ? (languageIssues.length ? "Yazınızın altındaki kırmızı çizgili yerleri düzeltin." : "Metninizi yine de öğretmeninize göstermenizi öneririz.")
+    : getNextTeacherStep(tasks[state.activeTask], text, score.analyses));
+  dom.resultsContent.append(advice);
 
-  const correctedBlock = element("section", "result-block full-width");
-  correctedBlock.append(
-    element("h3", "", "Düzeltilmiş metin"),
+  const correctedDetails = element("details", "compact-corrected");
+  correctedDetails.append(
+    element("summary", "", "Düzeltilmiş metni göster"),
     element("p", "corrected-text", correctedText || text)
   );
-
-  const nextBlock = element("section", "result-block full-width");
-  nextBlock.append(
-    element("h3", "", "Şimdi ne yapmalısın?"),
-    element("div", "next-step-card", getNextTeacherStep(tasks[state.activeTask], text, score.analyses))
-  );
-  columns.append(correctedBlock, nextBlock);
-  dom.resultsContent.append(columns);
+  dom.resultsContent.append(correctedDetails);
+  dom.resultsContent.append(element("p", "compact-result-warning", "Otomatik kontrol hata yapabilir. Sonucunuzu öğretmeninize danışın."));
 }
 
 function renderLanguageIssue(issue) {
   const card = element("article", "language-card");
-  card.append(element("span", "error-type", friendlyIssueType(issue.type)));
+  card.append(element("span", "error-type", `${issueSeverityLabel(issue.severity)} · ${friendlyIssueType(issue.type)}`));
   const originalLine = element("p");
   originalLine.append("Senin cümlen: ", element("span", "student-fragment", issue.original || "—"));
   card.append(originalLine);
@@ -1720,10 +3003,28 @@ function renderLanguageIssue(issue) {
   return card;
 }
 
+function issueSeverityLabel(severity) {
+  if (severity === "IMPROVEMENT") return "İYİLEŞTİRME";
+  if (severity === "INFO") return "BİLGİ";
+  return "HATA";
+}
+
 function friendlyIssueType(type) {
   const value = normalizeText(type || "");
   if (value.includes("mektuba uygun")) return "Mektuba uygunluk";
   if (value.includes("hoflich")) return "Resmî hitap";
+  if (value.includes("verbkonjugation") || value.includes("ozne-fiil")) return "Fiil çekimi";
+  if (value.includes("fragesatz")) return "Soru cümlesi";
+  if (value.includes("nebensatz")) return "Yan cümlede fiil";
+  if (value.includes("trennbar")) return "Ayrılabilen fiil";
+  if (value.includes("modal")) return "Modal fiil";
+  if (value.includes("personalpronomen")) return "Kişi zamiri";
+  if (value.includes("possessiv")) return "İyelik artikeli";
+  if (value.includes("adjektiv")) return "Sıfat çekimi";
+  if (value.includes("imperativ")) return "Emir cümlesi";
+  if (value.includes("eksik fiil")) return "Eksik fiil";
+  if (value.includes("fazla fiil")) return "Fazla fiil";
+  if (value.includes("kelime secimi")) return "Kelime seçimi";
   if (value.includes("rechtschreib")) return "Yazım";
   if (value.includes("grammatik")) return "Dilbilgisi";
   if (value.includes("wortstellung")) return "Kelime sırası";
@@ -1754,126 +3055,6 @@ function formatScore(number) {
   return Number.isInteger(number) ? String(number) : String(number).replace(".", ",");
 }
 
-function setMode(mode, persist = true) {
-  if (!['exam', 'teacher', 'steps'].includes(mode)) mode = "exam";
-  state.mode = mode;
-  document.body.dataset.mode = mode;
-  document.querySelectorAll(".mode-button").forEach((button) => {
-    button.classList.toggle("active", button.dataset.mode === mode);
-  });
-  dom.teacherPanel.hidden = mode === "exam";
-  dom.stepGuide.hidden = mode !== "steps";
-  if (mode === "teacher") renderTeacherWelcome();
-  if (mode === "steps") {
-    dom.teacherPanel.hidden = false;
-    updateStepGuide();
-  }
-  if (persist) saveProgress();
-}
-
-function renderTeacherWelcome() {
-  dom.teacherSource.textContent = AI_TEACHER_ENDPOINT ? "Gelişmiş kontrol" : "Temel kontrol";
-  dom.teacherResponse.replaceChildren();
-  const message = element("div", "teacher-message");
-  message.append(
-    element("strong", "", "Hazırım."),
-    element("p", "", "Cümleni sen yaz. Ben yalnızca yanlışını gösterip ne yazabileceğini anlatacağım.")
-  );
-  dom.teacherResponse.append(message);
-}
-
-async function handleTeacherAction(action) {
-  const text = dom.studentText.value.trim();
-  if (!text && action !== "next" && action !== "example") {
-    renderTeacherMessage("Önce bir cümle yaz.", "Kısa bir Anrede ile başlayabilirsin: “Liebe Anna,”");
-    return;
-  }
-
-  if (AI_TEACHER_ENDPOINT) {
-    const endpointFeedback = await requestTeacherEndpoint(action, text);
-    if (endpointFeedback) {
-      renderTeacherMessage(endpointFeedback.title || "Yazma yardımı", endpointFeedback.message || endpointFeedback.feedback || "");
-      return;
-    }
-  }
-
-  const task = tasks[state.activeTask];
-  const analyses = analyseContentPoints(task, text);
-  const issues = runLocalLanguageChecks(text);
-  const sentences = splitSentences(text);
-  const lastSentence = sentences[sentences.length - 1] || "";
-
-  if (action === "sentence") {
-    const sentenceIssue = issues.find((issue) => lastSentence.toLocaleLowerCase("de-DE").includes(issue.original.toLocaleLowerCase("de-DE"))) || issues[0];
-    if (sentenceIssue) {
-      renderTeacherMessage(
-        "Cümlen anlaşılır. Küçük bir düzeltme var.",
-        `Senin cümlen: ${sentenceIssue.original}\nDaha doğal: ${sentenceIssue.suggestion}\nNeden? ${sentenceIssue.explanation}`
-      );
-    } else {
-      renderTeacherMessage("Cümlen anlaşılır görünüyor.", "Şimdi görev maddelerinden birine kısa ve net bir cümleyle cevap ver.");
-    }
-  } else if (action === "missing") {
-    const missing = analyses.find((item) => item.score === 0);
-    renderTeacherMessage(
-      missing ? "Bir içerik maddesi eksik." : "Dört madde de metinde görünüyor.",
-      missing ? `Eksik: ${missing.label}. ${missing.hint}` : "En iyi yazdığın üç madde puanlanır. Şimdi başlangıç ve kapanışı kontrol et."
-    );
-  } else if (action === "why") {
-    const issue = issues[0];
-    renderTeacherMessage(
-      issue ? issue.type : "Belirgin bir yerel kural hatası bulamadım.",
-      issue ? `${issue.original} → ${issue.suggestion}\n${issue.explanation}` : "LanguageTool ile daha ayrıntılı kontrol için “Mektubumu Kontrol Et” düğmesini kullanabilirsin."
-    );
-  } else if (action === "natural") {
-    const issue = issues[0];
-    renderTeacherMessage(
-      issue ? "Daha doğal A2 biçimi" : "Cümleyi sade tut.",
-      issue ? `${issue.original} → ${issue.suggestion}` : naturalSuggestion(lastSentence)
-    );
-  } else if (action === "next") {
-    renderTeacherMessage("Sonraki adım", getNextTeacherStep(task, text, analyses));
-  } else if (action === "example") {
-    const missing = analyses.find((item) => item.score === 0) || task.points[0];
-    renderTeacherMessage("Kısa örnek cümle", `${missing.example}\nBu cümleyi aynen almak zorunda değilsin; kendi bilgine göre değiştir.`);
-  }
-}
-
-async function requestTeacherEndpoint(action, text) {
-  try {
-    const task = tasks[state.activeTask];
-    const payload = {
-      action,
-      task: {
-        id: task.id,
-        situation: task.situation,
-        instruction: task.instruction,
-        points: task.points.map(({ id, label }) => ({ id, label }))
-      },
-      studentText: text,
-      localAnalysis: analyseContentPoints(task, text),
-      localLanguageFindings: runLocalLanguageChecks(text)
-    };
-    const response = await fetch(AI_TEACHER_ENDPOINT, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-    if (!response.ok) throw new Error("AI endpoint unavailable");
-    return await response.json();
-  } catch (_error) {
-    showNotification("Güvenli AI bağlantısı kullanılamadı. Yerel öğretmen devam ediyor.", "warning");
-    return null;
-  }
-}
-
-function naturalSuggestion(sentence) {
-  if (!sentence) return "Önce kısa bir cümle yaz. Örnek: “Ich komme am Samstag.”";
-  if (/ich komme samstag/i.test(sentence)) return "Daha doğal: Ich komme am Samstag.";
-  if (countWords(sentence) > 14) return "Cümlen uzun. A2 için iki kısa cümleye bölebilirsin.";
-  return "Cümlen kısa ve anlaşılır. Zamanı ‘am Samstag’, saati ‘um 15 Uhr’ ile yazabilirsin.";
-}
-
 function getNextTeacherStep(task, text, analyses = analyseContentPoints(task, text)) {
   if (!detectGreeting(text).found) return "Önce uygun bir Anrede yaz: arkadaş için “Liebe/Lieber …,”; kurum için “Sehr geehrte Damen und Herren,”.";
   const missing = analyses.find((item) => item.score === 0);
@@ -1882,46 +3063,6 @@ function getNextTeacherStep(task, text, analyses = analyseContentPoints(task, te
   if (partial) return `${partial.label} maddesini biraz daha açık yaz. ${partial.hint}`;
   if (!detectClosing(text).found) return "Son olarak uygun bir Grußformel ekle: “Viele Grüße” veya resmî e-mailde “Mit freundlichen Grüßen”.";
   return "Mektubun temel yapısı tamam. Şimdi yazım ve dilbilgisi için “Mektubumu Kontrol Et” düğmesini kullan.";
-}
-
-function updateStepGuide() {
-  if (!dom.stepGuide || state.mode !== "steps") return;
-  const text = dom.studentText.value;
-  const task = tasks[state.activeTask];
-  const analyses = analyseContentPoints(task, text);
-  let number = 1;
-  let title = "Anrede yaz";
-  let instruction = "Önce uygun bir hitap yaz.";
-
-  if (detectGreeting(text).found) {
-    const completedPoints = analyses.filter((item) => item.score > 0).length;
-    if (completedPoints < 3) {
-      number = 2 + completedPoints;
-      const target = analyses.find((item) => item.score === 0) || analyses.find((item) => item.score === 1.5);
-      title = `${number - 1}. Inhaltspunkt`;
-      instruction = target ? target.hint : "Bir içerik maddesine kısa bir cümleyle cevap ver.";
-    } else if (!detectClosing(text).found) {
-      number = 5;
-      title = "Grußformel ekle";
-      instruction = "Şimdi uygun bir kapanış yaz. Örneği sen seç: Viele Grüße / Mit freundlichen Grüßen.";
-    } else {
-      number = 6;
-      title = "Metin tamam";
-      instruction = "Şimdi kendi metnini kontrol et. Sistem senin yerine yeni bir mektup yazmaz.";
-    }
-  }
-
-  dom.stepNumber.textContent = String(number);
-  dom.stepTitle.textContent = title;
-  dom.stepText.textContent = instruction;
-}
-
-function renderTeacherMessage(title, message) {
-  dom.teacherResponse.replaceChildren();
-  const card = element("div", "teacher-message");
-  card.append(element("strong", "", title));
-  String(message).split("\n").forEach((line) => card.append(element("p", "", line)));
-  dom.teacherResponse.append(card);
 }
 
 function startTimer() {
@@ -1975,33 +3116,35 @@ function resetTimer(notify = true) {
 }
 
 function startExamSession() {
+  isFreeWriting = selectedStartType === "free";
   sessionStarted = true;
-  pausedForPhraseGuide = false;
+  pausedForAwayView = false;
   timerRemaining = TASK_SECONDS;
   timerPaused = false;
   dom.pauseTimer.disabled = false;
   dom.resetTimer.disabled = false;
   dom.pauseTimer.textContent = "Duraklat";
+  renderTask();
   switchView("trainer");
   startTimer();
-  showNotification("Sınav başladı. 15 dakikan var.", "success");
+  showNotification(isFreeWriting ? "Serbest yazma başladı." : `Mektup ${tasks[state.activeTask].id} başladı.`, "success");
 }
 
 function switchView(view) {
   const showPractice = view === "practice";
   const showTrainer = view === "trainer" && sessionStarted;
-  const showStart = view === "trainer" && !sessionStarted;
+  const showStart = view === "home";
 
-  if (showPractice && sessionStarted && !timerPaused) {
+  if ((showPractice || showStart) && sessionStarted && !timerPaused && !dom.trainerView.hidden) {
     timerPaused = true;
-    pausedForPhraseGuide = true;
+    pausedForAwayView = true;
     dom.pauseTimer.textContent = "Devam et";
-    showNotification("Kalıp rehberindeyken süre duraklatıldı.");
+    showNotification("Yazma ekranından çıkınca süre duraklatıldı.");
   }
 
-  if (showTrainer && pausedForPhraseGuide) {
+  if (showTrainer && pausedForAwayView) {
     timerPaused = false;
-    pausedForPhraseGuide = false;
+    pausedForAwayView = false;
     dom.pauseTimer.textContent = "Duraklat";
     showNotification("Süre devam ediyor.");
   }
@@ -2013,10 +3156,9 @@ function switchView(view) {
   dom.practiceView.classList.toggle("active", showPractice);
   dom.practiceView.hidden = !showPractice;
 
-  if (showStart) dom.headerTask.textContent = `${tasks.length} çalışma sorusu`;
+  if (showStart) dom.headerTask.textContent = `${tasks.length} mektup + serbest yazma`;
   if (showTrainer) {
-    const task = tasks[state.activeTask];
-    dom.headerTask.textContent = `Soru ${String(task.id).padStart(2, "0")} / ${tasks.length}`;
+    dom.headerTask.textContent = isFreeWriting ? "Serbest yazma" : `Mektup ${String(tasks[state.activeTask].id).padStart(2, "0")} / ${tasks.length}`;
   }
   if (showPractice) dom.headerTask.textContent = "Kalıp rehberi";
 
@@ -2115,7 +3257,8 @@ async function handleCopyClick(event) {
 
 function saveDraft() {
   if (!dom.studentText) return;
-  state.drafts[String(tasks[state.activeTask].id)] = dom.studentText.value;
+  if (isFreeWriting) state.freeDraft = dom.studentText.value;
+  else state.drafts[String(tasks[state.activeTask].id)] = dom.studentText.value;
   saveProgress();
 }
 
@@ -2139,6 +3282,7 @@ function loadProgress() {
       ...state,
       ...saved,
       drafts: saved.drafts && typeof saved.drafts === "object" ? saved.drafts : {},
+      freeDraft: typeof saved.freeDraft === "string" ? saved.freeDraft : "",
       completed: saved.completed && typeof saved.completed === "object" ? saved.completed : {}
     };
     state.activeTask = Math.max(0, Math.min(tasks.length - 1, Number(state.activeTask) || 0));
@@ -2151,17 +3295,19 @@ function resetProgress() {
   const confirmed = window.confirm("Tüm taslakları, puanları ve ilerlemeyi sıfırlamak istiyor musun?");
   if (!confirmed) return;
   try { localStorage.removeItem(STORAGE_KEY); } catch (_error) { /* no-op */ }
-  state = { activeTask: 0, drafts: {}, completed: {}, lastScore: null, bestScore: 0, attempts: 0, mode: "exam" };
+  state = { activeTask: 0, drafts: {}, freeDraft: "", completed: {}, lastScore: null, bestScore: 0, attempts: 0 };
   sessionStarted = false;
   timerPaused = true;
-  pausedForPhraseGuide = false;
+  selectedStartType = "task";
+  isFreeWriting = false;
+  pausedForAwayView = false;
   timerRemaining = TASK_SECONDS;
   if (timerInterval) window.clearInterval(timerInterval);
   timerInterval = null;
   renderTimer();
-  setMode("exam", false);
+  renderStartTaskGrid();
   renderTask();
-  switchView("trainer");
+  switchView("home");
   showNotification("İlerleme sıfırlandı.", "success");
 }
 
